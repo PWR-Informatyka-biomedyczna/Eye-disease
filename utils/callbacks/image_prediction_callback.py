@@ -1,6 +1,6 @@
-import pytorch_lightning as pl
 import torch
 import wandb
+import pytorch_lightning as pl
 
 
 class ImagePredictionCallback(pl.Callback):

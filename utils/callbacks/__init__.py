@@ -1,0 +1,1 @@
+from utils.callbacks.image_prediction_callback import ImagePredictionCallback
