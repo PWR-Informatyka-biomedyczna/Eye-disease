@@ -6,16 +6,16 @@ import pytorch_lightning as pl
 from torchmetrics import Accuracy, Precision, Recall, F1, AUC
 
 
-class Model(pl.LightningModule):
+class Classifier(pl.LightningModule):
 
     def __init__(self, model: torch.Module(), num_classes: int, lr: float):
-        super(Model, self).__init__()
+        super(Classifier, self).__init__()
         self._model = model
         self._metrics = {
             'accuracy': Accuracy(),
-            'precision': Precision(num_classes=num_classes, average=None),
-            'recall': Recall(num_classes=num_classes, average=None),
-            'f1_micro': F1(num_classes=num_classes, average=None),
+            'precision': Precision(num_classes=num_classes),
+            'recall': Recall(num_classes=num_classes),
+            'f1_micro': F1(num_classes=num_classes),
             'f1_macro': F1(num_classes=num_classes, average='macro'),
             'auc': AUC()
         }
