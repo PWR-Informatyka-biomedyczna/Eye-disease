@@ -1,2 +1,2 @@
 from dataset.datamodule import EyeDiseaseDataModule
-from dataset.dataset import Dataset
+from dataset.dataset import EyeDiseaseData

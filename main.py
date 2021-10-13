@@ -3,10 +3,9 @@ from typing import NoReturn
 
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger()
+from pytorch_lightning.loggers import WandbLogger
 import numpy as np
 import random
-
 
 DEFAULT_HPARAMS = {
 
@@ -27,7 +26,6 @@ def seed_everything(seed: int) -> NoReturn:
 def main():
     seed_everything(0)
     logger = WandbLogger()
-
 
 
 if __name__ == '__main__':
