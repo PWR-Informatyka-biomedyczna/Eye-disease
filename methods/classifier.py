@@ -1,16 +1,28 @@
-from typing import NoReturn
+from typing import NoReturn, Iterable
 
 import torch
 from torch import nn
 import pytorch_lightning as pl
 from torchmetrics import Accuracy, Precision, Recall, F1, AUC
 
+from methods import BaseModel
+
 
 class Classifier(pl.LightningModule):
 
-    def __init__(self, model: torch.Module(), num_classes: int, lr: float):
+    def __init__(self,
+                 model: BaseModel,
+                 num_classes: int,
+                 lr: float,
+                 optimizer: torch.optim.Optimizer = torch.optim.Adam
+                 ):
         super(Classifier, self).__init__()
+        # optimizer config
+        self.optimizer = optimizer
+        self.lr = lr
+        # model config
         self.model = model
+        # metrics config
         self.metrics = {}
         for key in ['val', 'test']:
             self.metrics[key] = {
@@ -21,14 +33,14 @@ class Classifier(pl.LightningModule):
                 'f1_macro': F1(num_classes=num_classes, average='macro'),
                 'auc': AUC()
             }
-        self.lr = lr
+        # criterion config
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.model(x)
         return out
 
-    def training_step(self, batch, batch_idx) -> torch.Tensor:
+    def training_step(self, batch: Iterable, batch_idx: int) -> torch.Tensor:
         x, y_true = batch
 
         y_pred = self.model(x)
@@ -36,7 +48,7 @@ class Classifier(pl.LightningModule):
         self.log('train_loss', loss, on_epoch=True, prog_bar=True)
         return loss
 
-    def validation_step(self, batch, batch_idx) -> torch.Tensor:
+    def validation_step(self, batch: Iterable, batch_idx: int) -> torch.Tensor:
         x, y_true = batch
 
         y_pred = self.model(x)
@@ -46,13 +58,13 @@ class Classifier(pl.LightningModule):
 
         return loss
 
-    def test_step(self, batch, batch_idx) -> None:
+    def test_step(self, batch: Iterable, batch_idx: int) -> None:
         x, y_true = batch
 
         y_pred = self.model(x)
         self._calculate_score(y_pred, y_true, split='test', on_step=False, on_epoch=True)
 
-    def configure_optimizers(self) -> torch.optim.Adam:
+    def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.Adam(self.model.parameters(), self.lr)
         return optimizer
 
