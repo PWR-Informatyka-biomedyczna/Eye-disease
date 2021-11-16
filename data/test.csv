@@ -1,0 +1,6 @@
+Label,Path,Split
+0,C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\cat1.jpg,train
+0,C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\cat2.jpg,test
+1,C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\dog1.jpg,train
+1,C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\dog2.jpg,train
+1,C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\dog3.jpg,val
