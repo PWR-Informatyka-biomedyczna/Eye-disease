@@ -1,6 +1,7 @@
 from os import name
 import torch
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping
 from dataset.datamodule import EyeDiseaseDataModule
 from dataset.transforms import test_val_transforms, train_transforms
@@ -13,7 +14,7 @@ from utils import train_test, ImagePredictionCallback
 PROJECT_NAME = 'PROJECTTEST'
 NUM_CLASSES = 2
 LR = 1e-4
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 TARGET_SIZE = (100, 100)
 NORMALIZE = True
 MONITOR = 'f1_score'
@@ -22,7 +23,7 @@ MONITOR = 'f1_score'
 def main():
     model = ResNetModel(NUM_CLASSES)
     data_module = EyeDiseaseDataModule(
-        csv_path='',
+        csv_path=r'C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\test.csv',
         train_split_name='train',
         val_split_name='val',
         test_split_name='test',
@@ -31,6 +32,7 @@ def main():
         test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE),
         image_path_name='Path',
         target_name='Label',
+        split_name='Split',
         batch_size=BATCH_SIZE,
         num_workers=12,
         shuffle_train=True,
@@ -39,6 +41,7 @@ def main():
             train_split_name='train'
             )
     )
+    data_module.prepare_data()
 
     hparams = {
         'dataset': type(data_module).__name__,
@@ -49,10 +52,10 @@ def main():
         'num_classes': NUM_CLASSES
     }
 
-    logger = pl.loggers.WandbLogger(
+    logger = WandbLogger(
         save_dir=LOGS_DIR,
         config=hparams,
-        project_name=PROJECT_NAME
+        project=PROJECT_NAME
     )
 
     callbacks = [
@@ -68,6 +71,7 @@ def main():
         callbacks=callbacks,
         logger=logger
     )
+
 
 if __name__ == '__main__':
     main()

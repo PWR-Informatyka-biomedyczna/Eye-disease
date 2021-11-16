@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Tuple
 
 from PIL import Image
 import torch

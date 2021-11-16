@@ -3,7 +3,7 @@ from typing import NoReturn, Iterable
 import torch
 from torch import nn
 import pytorch_lightning as pl
-from torchmetrics import Accuracy, Precision, Recall, F1, AUC
+from torchmetrics.functional import accuracy, f1, precision, recall, auc
 
 from methods import BaseModel
 
@@ -26,12 +26,11 @@ class Classifier(pl.LightningModule):
         self.metrics = {}
         for key in ['val', 'test']:
             self.metrics[key] = {
-                'accuracy': Accuracy(),
-                'precision': Precision(num_classes=num_classes),
-                'recall': Recall(num_classes=num_classes),
-                'f1_micro': F1(num_classes=num_classes),
-                'f1_macro': F1(num_classes=num_classes, average='macro'),
-                'auc': AUC()
+                'accuracy': lambda x, y: accuracy(x, y),
+                'precision': lambda x, y: precision(x, y, num_classes=num_classes),
+                'recall': lambda x, y: recall(x, y, num_classes=num_classes),
+                'f1_micro': lambda x, y: f1(x, y, num_classes=num_classes),
+                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro')
             }
         # criterion config
         self.criterion = nn.CrossEntropyLoss()
@@ -41,28 +40,22 @@ class Classifier(pl.LightningModule):
         return out
 
     def training_step(self, batch: Iterable, batch_idx: int) -> torch.Tensor:
-        x, y_true = batch
-
-        y_pred = self.model(x)
-        loss = self.criterion(y_pred, y_true)
+        y_pred = self.model(batch)
+        loss = self.criterion(y_pred, batch['target'])
         self.log('train_loss', loss, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch: Iterable, batch_idx: int) -> torch.Tensor:
-        x, y_true = batch
-
-        y_pred = self.model(x)
-        loss = self.criterion(y_pred, y_true)
+        y_pred = self.model(batch)
+        loss = self.criterion(y_pred, batch['target'])
         self.log('val_loss', loss, on_epoch=True, prog_bar=True)
-        self._calculate_score(y_pred, y_true, split='val', on_step=False, on_epoch=True)
+        self._calculate_score(y_pred, batch['target'], split='val', on_step=False, on_epoch=True)
 
         return loss
 
     def test_step(self, batch: Iterable, batch_idx: int) -> None:
-        x, y_true = batch
-
-        y_pred = self.model(x)
-        self._calculate_score(y_pred, y_true, split='test', on_step=False, on_epoch=True)
+        y_pred = self.model(batch)
+        self._calculate_score(y_pred, batch['target'], split='test', on_step=False, on_epoch=True)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.Adam(self.model.parameters(), self.lr)
@@ -71,7 +64,7 @@ class Classifier(pl.LightningModule):
     def _calculate_score(self, y_pred: torch.Tensor, y_true: torch.Tensor, split: str, on_step: bool,
                          on_epoch: bool) -> NoReturn:
         score = {}
-        output = torch.softmax(y_pred, dim=1)
+        output = torch.softmax(y_pred, dim=1).cuda()
         for metric_name, metric in self.metrics[split].items():
             score[f'{split}_{metric_name}'] = metric(output, y_true)
         self.log_dict(score, on_step=on_step, on_epoch=on_epoch)

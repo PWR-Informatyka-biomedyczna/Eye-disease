@@ -1,10 +1,12 @@
 from typing import Callable
 import pandas as pd
 
+
 def identity_resampler() -> Callable:
     def _resampler(df: pd.DataFrame) -> pd.DataFrame:
         return df
     return _resampler
+
 
 def to_lowest_resampler(target_label: str = 'Label', train_split_name: str = 'train') -> Callable:
     def _resampler(df: pd.DataFrame) -> pd.DataFrame:
@@ -14,8 +16,13 @@ def to_lowest_resampler(target_label: str = 'Label', train_split_name: str = 'tr
         for cls, num_samples in classes.items():
             cls_df = df_train[df_train[target_label] == cls]
             difference = max_classes - num_samples
-            resampled = cls_df.sample(difference, ignore_index=True)
+            resampled = cls_df.sample(difference, replace=True, ignore_index=True)
             df = pd.concat([df, resampled], ignore_index=True)
         return df
     return _resampler
 
+
+if __name__ == '__main__':
+    df = pd.read_csv(r'C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\test.csv')
+    df = to_lowest_resampler('Label', 'train')(df)
+    print(df)

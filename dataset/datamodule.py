@@ -21,6 +21,7 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  test_transforms: Compose = ToTensor,
                  image_path_name: str = 'path',
                  target_name: str = 'label',
+                 split_name: str = 'split',
                  batch_size: int = 16,
                  num_workers: int = 12,
                  shuffle_train: bool = True,
@@ -28,25 +29,33 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  ):
         super(EyeDiseaseDataModule, self).__init__()
         self.resampler = resampler
+
+        # path
         self.csv_path: str = csv_path
+        # split names
         self.train_split_name: str = train_split_name
         self.val_split_name: str = val_split_name
         self.test_split_name: str = test_split_name
+        # transforms
         self.train_transforms: Compose = train_transforms
         self.val_transforms: Compose = val_transforms
         self.test_transforms: Compose = test_transforms
+        # column names
         self.image_path_name: str = image_path_name
         self.target_name: str = target_name
+        self.split_name = split_name
+        # dataset parameters
         self.batch_size: int = batch_size
         self.num_workers: int = num_workers
         self.shuffle_train: bool = shuffle_train
+        # main dataframes
         self.data: Dict[str, pd.DataFrame] = {}
 
     def prepare_data(self) -> None:
         df = self.resampler(pd.read_csv(self.csv_path))
-        self.data['train'] = df[self.train_split_name]
-        self.data['val'] = df[self.val_split_name]
-        self.data['test'] = df[self.test_split_name]
+        self.data['train'] = df[df[self.split_name] == self.train_split_name]
+        self.data['val'] = df[df[self.split_name] == self.val_split_name]
+        self.data['test'] = df[df[self.split_name] == self.test_split_name]
 
     def setup(self, stage: Optional[str] = None) -> None:
         pass
