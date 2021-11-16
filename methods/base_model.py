@@ -1,4 +1,5 @@
 import abc
+from typing import Dict
 import torch
 from torch import nn
 
@@ -10,5 +11,5 @@ class BaseModel(nn.Module):
         self.num_classes = num_classes
 
     @abc.abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         pass

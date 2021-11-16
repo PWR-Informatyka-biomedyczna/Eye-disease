@@ -1,3 +1,5 @@
+from typing import Dict
+
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
@@ -25,8 +27,8 @@ class EyeDiseaseData(Dataset):
         img = Image.open(image_path)
         return self.transforms(img)
 
-    def __getitem__(self, idx: int) -> (torch.Tensor, torch.Tensor):
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         row = self.data.iloc[idx]
         path, label = row[self.path_name], row[self.label_name]
         image = self._process_image(path)
-        return image, label
+        return {'input': image, 'target': label}
