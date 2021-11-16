@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Callable, Optional, Dict
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 
 from dataset.dataset import EyeDiseaseData
+from dataset.resamplers import identity_resampler
 
 
 class EyeDiseaseDataModule(pl.LightningDataModule):
@@ -22,9 +23,11 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  target_name: str = 'label',
                  batch_size: int = 16,
                  num_workers: int = 12,
-                 shuffle_train: bool = True
+                 shuffle_train: bool = True,
+                 resampler: Callable = identity_resampler()
                  ):
         super(EyeDiseaseDataModule, self).__init__()
+        self.resampler = resampler
         self.csv_path: str = csv_path
         self.train_split_name: str = train_split_name
         self.val_split_name: str = val_split_name
@@ -40,7 +43,7 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
         self.data: Dict[str, pd.DataFrame] = {}
 
     def prepare_data(self) -> None:
-        df = pd.read_csv(self.csv_path)
+        df = self.resampler(pd.read_csv(self.csv_path))
         self.data['train'] = df[self.train_split_name]
         self.data['val'] = df[self.val_split_name]
         self.data['test'] = df[self.test_split_name]

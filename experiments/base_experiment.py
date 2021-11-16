@@ -7,6 +7,7 @@ from dataset.transforms import test_val_transforms, train_transforms
 from methods.resnet import ResNetModel
 
 from settings import LOGS_DIR, PROJECT_DIR, CHECKPOINTS_DIR
+from dataset import resamplers
 from utils import train_test, ImagePredictionCallback
 
 PROJECT_NAME = 'PROJECTTEST'
@@ -15,6 +16,7 @@ LR = 1e-4
 BATCH_SIZE = 1
 TARGET_SIZE = (100, 100)
 NORMALIZE = True
+MONITOR = 'f1_score'
 
 
 def main():
@@ -31,7 +33,11 @@ def main():
         target_name='Label',
         batch_size=BATCH_SIZE,
         num_workers=12,
-        shuffle_train=True
+        shuffle_train=True,
+        resampler=resamplers.to_lowest_resampler(
+            target_label='Label',
+            train_split_name='train'
+            )
     )
 
     hparams = {
@@ -49,7 +55,9 @@ def main():
         project_name=PROJECT_NAME
     )
 
-    callbacks = [EarlyStopping]
+    callbacks = [
+    #    EarlyStopping(monitor=MONITOR)
+    ]
     train_test(
         model=model,
         datamodule=data_module,
