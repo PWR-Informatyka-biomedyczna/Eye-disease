@@ -1,23 +1,24 @@
-from os import name
-import torch
-import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from dataset.datamodule import EyeDiseaseDataModule
 from dataset.transforms import test_val_transforms, train_transforms
 from methods.resnet import ResNetModel
 
-from settings import LOGS_DIR, PROJECT_DIR, CHECKPOINTS_DIR
+from settings import LOGS_DIR, CHECKPOINTS_DIR
 from dataset import resamplers
-from utils import train_test, ImagePredictionCallback
+from utils import train_test
 
+# experiment setup
 PROJECT_NAME = 'PROJECTTEST'
 NUM_CLASSES = 2
 LR = 1e-4
 BATCH_SIZE = 2
 TARGET_SIZE = (100, 100)
 NORMALIZE = True
-MONITOR = 'f1_score'
+MONITOR = 'val_loss'
+PATIENCE = 10
+MAX_EPOCHS = 10
+GPUS = -1
 
 
 def main():
@@ -39,7 +40,7 @@ def main():
         resampler=resamplers.to_lowest_resampler(
             target_label='Label',
             train_split_name='train'
-            )
+        )
     )
     data_module.prepare_data()
 
@@ -55,22 +56,34 @@ def main():
     logger = WandbLogger(
         save_dir=LOGS_DIR,
         config=hparams,
-        project=PROJECT_NAME
+        project=PROJECT_NAME,
+        log_model=False
     )
 
     callbacks = [
-    #    EarlyStopping(monitor=MONITOR)
+        EarlyStopping(
+            monitor=MONITOR,
+            patience=PATIENCE,
+            mode='min'
+        ),
+        ModelCheckpoint(
+            dirpath=CHECKPOINTS_DIR,
+            save_top_k=1,
+            monitor=MONITOR,
+            mode='min'
+        )
     ]
     train_test(
         model=model,
         datamodule=data_module,
-        max_epochs=100,
+        max_epochs=5,
         num_classes=NUM_CLASSES,
         gpus=1,
         lr=LR,
         callbacks=callbacks,
         logger=logger
     )
+    logger.experiment.finish()
 
 
 if __name__ == '__main__':

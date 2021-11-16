@@ -2,3 +2,6 @@ __pycache__
 storage/*
 .idea
 .vscode
+logs/*
+data/*
+checkpoints/*
