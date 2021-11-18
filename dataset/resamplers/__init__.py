@@ -20,9 +20,3 @@ def to_lowest_resampler(target_label: str = 'Label', train_split_name: str = 'tr
             df = pd.concat([df, resampled], ignore_index=True)
         return df
     return _resampler
-
-
-if __name__ == '__main__':
-    df = pd.read_csv(r'C:\Users\Konrad\Desktop\PythonProjects\Eye-disease\data\test.csv')
-    df = to_lowest_resampler('Label', 'train')(df)
-    print(df)

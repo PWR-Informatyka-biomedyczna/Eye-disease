@@ -57,8 +57,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
         self.data['val'] = df[df[self.split_name] == self.val_split_name]
         self.data['test'] = df[df[self.split_name] == self.test_split_name]
 
-    def setup(self, stage: Optional[str] = None) -> None:
-        pass
+    # def setup(self, stage: Optional[str] = None) -> None:
+    #     pass
 
     def train_dataloader(self) -> DataLoader:
         """
