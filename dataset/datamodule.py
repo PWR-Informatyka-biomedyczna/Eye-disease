@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Dict
+from typing import Callable, Dict
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -28,7 +28,7 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  resampler: Callable = identity_resampler()
                  ):
         super(EyeDiseaseDataModule, self).__init__()
-        self.resampler = resampler
+        self.resampler: Callable = resampler
 
         # path
         self.csv_path: str = csv_path

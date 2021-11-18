@@ -1,5 +1,6 @@
 from typing import List
 
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.callbacks import Callback
@@ -15,7 +16,8 @@ def train_test(
         lr: float,
         gpus: int,
         callbacks: List[Callback],
-        logger: LightningLoggerBase):
+        logger: LightningLoggerBase,
+        optimizer: torch.optim.Optimizer = torch.optim.Adam):
     """
     Base experiment function
     :param model:
@@ -31,7 +33,8 @@ def train_test(
     module = Classifier(
         model=model,
         num_classes=num_classes,
-        lr=lr
+        lr=lr,
+        optimizer=optimizer
     )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
