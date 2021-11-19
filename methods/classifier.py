@@ -40,15 +40,13 @@ class Classifier(pl.LightningModule):
             self.metrics[key] = {
                 'accuracy': lambda x, y: accuracy(x, y),
                 'f1_micro': lambda x, y: f1(x, y, num_classes=num_classes),
-                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro'),
-                'roc_auc': lambda x, y: auc(x, y)
+                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro')
             }
             for cls in range(num_classes):
-                self.metrics[key] = {
-                    f'f1_class_{cls}': lambda x, y: f1_score(x, y, current_class=cls),
-                    f'sensitivity_class_{cls}': lambda x, y: sensitivity(x, y, current_class=cls),
-                    f'specificity_class_{cls}': lambda x, y: specificity(x, y, current_class=cls)
-                }
+                self.metrics[key][f'f1_class_{cls}'] =  lambda x, y: f1_score(x, y, current_class=cls)
+                self.metrics[key][f'sensitivity_class_{cls}'] = lambda x, y: sensitivity(x, y, current_class=cls)
+                self.metrics[key][f'specificity_class_{cls}'] = lambda x, y: specificity(x, y, current_class=cls)
+        print(self.metrics)
         # criterion config
         self.criterion = nn.CrossEntropyLoss()
 
