@@ -11,7 +11,7 @@ from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods.resnet import ResNetModel
 from settings import LOGS_DIR, CHECKPOINTS_DIR
-from utils import train_test
+from training import train_test
 
 # experiment setup
 SEED = 0
@@ -19,7 +19,7 @@ PROJECT_NAME = 'PROJECTTEST'
 NUM_CLASSES = 2
 LR = 1e-4
 BATCH_SIZE = 2
-MAX_EPOCHS = 100
+MAX_EPOCHS = 5
 TARGET_SIZE = (100, 100)
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -29,7 +29,7 @@ GPUS = -1
 
 def seed_all(seed: int) -> None:
     np.random.seed(seed)
-    torch.random.seed(seed)
+    torch.random.manual_seed(seed)
     random.seed(seed)
 
 
@@ -40,7 +40,7 @@ def main():
     ]
     for model in models_list:
         data_module = EyeDiseaseDataModule(
-            csv_path=r'./data',
+            csv_path=r'../data/test.csv',
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',

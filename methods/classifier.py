@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 from torchmetrics.functional import accuracy, f1, auc
 from utils.metrics import f1_score, sensitivity, specificity
 
-from methods import BaseModel
+from methods.base_model import BaseModel
 
 
 class Classifier(pl.LightningModule):
@@ -47,7 +47,7 @@ class Classifier(pl.LightningModule):
                 self.metrics[key] = {
                     f'f1_class_{cls}': lambda x, y: f1_score(x, y, current_class=cls),
                     f'sensitivity_class_{cls}': lambda x, y: sensitivity(x, y, current_class=cls),
-                    f'specificity_class_{cls}': lambda x, y: sensitivity(x, y, current_class=cls)
+                    f'specificity_class_{cls}': lambda x, y: specificity(x, y, current_class=cls)
                 }
         # criterion config
         self.criterion = nn.CrossEntropyLoss()
