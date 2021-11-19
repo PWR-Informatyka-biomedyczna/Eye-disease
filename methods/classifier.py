@@ -3,7 +3,8 @@ from typing import NoReturn, Dict
 import torch
 from torch import nn
 import pytorch_lightning as pl
-from torchmetrics.functional import accuracy, f1, precision, recall
+from torchmetrics.functional import accuracy, f1, auc
+from utils.metrics import f1_score, sensitivity, specificity
 
 from methods import BaseModel
 
@@ -38,11 +39,16 @@ class Classifier(pl.LightningModule):
         for key in ['val', 'test']:
             self.metrics[key] = {
                 'accuracy': lambda x, y: accuracy(x, y),
-                'precision': lambda x, y: precision(x, y, num_classes=num_classes),
-                'recall': lambda x, y: recall(x, y, num_classes=num_classes),
                 'f1_micro': lambda x, y: f1(x, y, num_classes=num_classes),
-                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro')
+                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro'),
+                'roc_auc': lambda x, y: auc(x, y)
             }
+            for cls in range(num_classes):
+                self.metrics[key] = {
+                    f'f1_class_{cls}': lambda x, y: f1_score(x, y, current_class=cls),
+                    f'sensitivity_class_{cls}': lambda x, y: sensitivity(x, y, current_class=cls),
+                    f'specificity_class_{cls}': lambda x, y: sensitivity(x, y, current_class=cls)
+                }
         # criterion config
         self.criterion = nn.CrossEntropyLoss()
 

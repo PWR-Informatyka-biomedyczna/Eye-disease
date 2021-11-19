@@ -1,3 +1,7 @@
+import random
+
+import numpy as np
+import torch
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torchvision.transforms import InterpolationMode
@@ -10,6 +14,7 @@ from settings import LOGS_DIR, CHECKPOINTS_DIR
 from utils import train_test
 
 # experiment setup
+SEED = 0
 PROJECT_NAME = 'PROJECTTEST'
 NUM_CLASSES = 2
 LR = 1e-4
@@ -19,73 +24,82 @@ TARGET_SIZE = (100, 100)
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 10
-MAX_EPOCHS = 10
 GPUS = -1
 
 
+def seed_all(seed: int) -> None:
+    np.random.seed(seed)
+    torch.random.seed(seed)
+    random.seed(seed)
+
+
 def main():
-    model = ResNetModel(NUM_CLASSES)
-    data_module = EyeDiseaseDataModule(
-        csv_path=r'./data',
-        train_split_name='train',
-        val_split_name='val',
-        test_split_name='test',
-        train_transforms=train_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
-        val_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
-        test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
-        image_path_name='Path',
-        target_name='Label',
-        split_name='Split',
-        batch_size=BATCH_SIZE,
-        num_workers=12,
-        shuffle_train=True,
-        resampler=resamplers.to_lowest_resampler(
-            target_label='Label',
-            train_split_name='train'
-        )
-    )
-    data_module.prepare_data()
-
-    hparams = {
-        'dataset': type(data_module).__name__,
-        'model_type': type(model).__name__,
-        'lr': LR,
-        'batch_size': BATCH_SIZE,
-        'optimizer': 'adam',
-        'num_classes': NUM_CLASSES
-    }
-
-    logger = WandbLogger(
-        save_dir=LOGS_DIR,
-        config=hparams,
-        project=PROJECT_NAME,
-        log_model=False
-    )
-
-    callbacks = [
-        EarlyStopping(
-            monitor=MONITOR,
-            patience=PATIENCE,
-            mode='min'
-        ),
-        ModelCheckpoint(
-            dirpath=CHECKPOINTS_DIR,
-            save_top_k=1,
-            monitor=MONITOR,
-            mode='min'
-        )
+    seed_all(SEED)
+    models_list = [
+        ResNetModel(NUM_CLASSES)
     ]
-    train_test(
-        model=model,
-        datamodule=data_module,
-        max_epochs=MAX_EPOCHS,
-        num_classes=NUM_CLASSES,
-        gpus=GPUS,
-        lr=LR,
-        callbacks=callbacks,
-        logger=logger
-    )
-    logger.experiment.finish()
+    for model in models_list:
+        data_module = EyeDiseaseDataModule(
+            csv_path=r'./data',
+            train_split_name='train',
+            val_split_name='val',
+            test_split_name='test',
+            train_transforms=train_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
+            val_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
+            test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
+            image_path_name='Path',
+            target_name='Label',
+            split_name='Split',
+            batch_size=BATCH_SIZE,
+            num_workers=12,
+            shuffle_train=True,
+            resampler=resamplers.to_lowest_resampler(
+                target_label='Label',
+                train_split_name='train'
+            )
+        )
+        data_module.prepare_data()
+
+        hparams = {
+            'dataset': type(data_module).__name__,
+            'model_type': type(model).__name__,
+            'lr': LR,
+            'batch_size': BATCH_SIZE,
+            'optimizer': 'adam',
+            'num_classes': NUM_CLASSES
+        }
+
+        logger = WandbLogger(
+            save_dir=LOGS_DIR,
+            config=hparams,
+            project=PROJECT_NAME,
+            log_model=False
+        )
+
+        callbacks = [
+            EarlyStopping(
+                monitor=MONITOR,
+                patience=PATIENCE,
+                mode='min'
+            ),
+            ModelCheckpoint(
+                dirpath=CHECKPOINTS_DIR,
+                save_top_k=1,
+                monitor=MONITOR,
+                mode='min'
+            )
+        ]
+        train_test(
+            model=model,
+            datamodule=data_module,
+            max_epochs=MAX_EPOCHS,
+            num_classes=NUM_CLASSES,
+            gpus=GPUS,
+            lr=LR,
+            callbacks=callbacks,
+            logger=logger
+        )
+        logger.experiment.finish()
 
 
 if __name__ == '__main__':
