@@ -1,6 +1,6 @@
 from typing import Dict, Tuple
 
-from PIL import Image
+import cv2
 import torch
 from torch.utils.data import Dataset
 
@@ -24,7 +24,7 @@ class EyeDiseaseData(Dataset):
         return self.data.__len__()
 
     def _process_image(self, image_path: str) -> torch.Tensor:
-        img = Image.open(image_path)
+        img = cv2.imread(image_path)
         return self.transforms(img)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:

@@ -4,6 +4,8 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.callbacks import Callback
+from pytorch_lightning.plugins.training_type import DDPPlugin
+from pytorch_lightning.plugins.training_type.parallel import ParallelPlugin
 
 from methods import BaseModel, Classifier
 
@@ -17,7 +19,9 @@ def train_test(
         gpus: int,
         callbacks: List[Callback],
         logger: LightningLoggerBase,
-        optimizer: torch.optim.Optimizer = torch.optim.Adam):
+        optimizer: torch.optim.Optimizer = torch.optim.Adam,
+        precision: int = 32,
+        strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False)):
     """
     Base experiment function
     :param model:
@@ -41,6 +45,8 @@ def train_test(
         gpus=gpus,
         callbacks=callbacks,
         logger=logger,
+        precison=precision,
+        strategy=strategy
     )
     trainer.fit(
         model=module,

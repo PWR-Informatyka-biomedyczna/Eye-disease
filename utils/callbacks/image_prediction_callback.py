@@ -20,7 +20,7 @@ class ImagePredictionCallback(pl.Callback):
 
         trainer.logger.experiment.log(
             {
-                "examples": [wandb.Image(x, caption=f'Label: {y}, predicted: {x}') for x, pred, y in
+                "examples": [wandb.Image(x, caption=f'Label: {y}, predicted: {pred}') for x, pred, y in
                              zip(samples, y_pred, self.samples)],
                 "global_step": trainer.global_step
             })
