@@ -25,6 +25,7 @@ class EyeDiseaseData(Dataset):
 
     def _process_image(self, image_path: str) -> torch.Tensor:
         img = cv2.imread(image_path)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return self.transforms(img)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
