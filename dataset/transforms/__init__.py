@@ -1,17 +1,36 @@
 from typing import Tuple
 from torchvision.transforms import transforms, InterpolationMode
 
+import albumentations as A
+import imgaug as ia
+import imgaug.augmenters as iaa
+import cv2
+
 
 def train_transforms(
     target_size: Tuple[int, int],
     normalize: bool = True, 
-    interpolation_mode: InterpolationMode = InterpolationMode.NEAREST) -> transforms.Compose:
+    interpolation_mode = cv2.INTER_NEAREST) -> transforms.Compose:
+    aug_A = A.Compose(
+                    [
+                        A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode),
+                        A.Rotate(limit=(-5, 5), p=0.5, interpolation=interpolation_mode),
+                        A.HorizontalFlip(p=0.5),
+                        A.VerticalFlip(p=0.5),
+                        A.GaussianBlur(p=0.3),
+                        A.Equalize(by_channels=False, p=0.3)
+                    ])
+    aug_ia = iaa.Sometimes(iaa.OneOf([
+                iaa.AdditiveGaussianNoise(),
+                iaa.LinearContrast(),
+                iaa.AddToBrightness()
+             ]))
+
     transforms_list = [
-            transforms.Resize(target_size, interpolation=interpolation_mode),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation((-5, 5)),
-            transforms.ToTensor()
-        ]
+        aug_A,
+        aug_ia,
+        transforms.ToTensor()
+    ]
     if normalize:
         transforms_list.append(transforms.Normalize(
             (0.485, 0.456, 0.406),
@@ -23,6 +42,7 @@ def test_val_transforms(
     target_size: Tuple[int, int], 
     normalize: bool = True,
     interpolation_mode: InterpolationMode = InterpolationMode.NEAREST) -> transforms.Compose:
+
     transforms_list = [
         transforms.Resize(target_size, interpolation=interpolation_mode),
         transforms.ToTensor()
