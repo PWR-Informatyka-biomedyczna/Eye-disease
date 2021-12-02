@@ -4,3 +4,5 @@ pillow~=8.3.2
 torchvision~=0.10.1
 numpy~=1.21.2
 torchmetrics~=0.5.1
+albumentations~=1.1.0
+imgaug~=0.4.0
