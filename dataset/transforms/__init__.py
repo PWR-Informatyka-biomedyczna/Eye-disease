@@ -1,10 +1,18 @@
 from typing import Tuple
 from torchvision.transforms import transforms, InterpolationMode
 
+import torch
+import numpy as np
 import albumentations as A
 import imgaug as ia
 import imgaug.augmenters as iaa
 import cv2
+
+
+class FromNumpy():
+
+    def __call__(self, x: np.ndarray) -> torch.Tensor:
+        return torch.from_numpy(x)
 
 
 def train_transforms(
@@ -20,7 +28,7 @@ def train_transforms(
                         A.GaussianBlur(p=0.3),
                         A.Equalize(by_channels=False, p=0.3)
                     ])
-    aug_ia = iaa.Sometimes(iaa.OneOf([
+    aug_ia = iaa.Sometimes(p=1, then_list=iaa.OneOf([
                 iaa.AdditiveGaussianNoise(),
                 iaa.LinearContrast(),
                 iaa.AddToBrightness()

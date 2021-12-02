@@ -13,18 +13,23 @@ from methods.resnet import ResNetModel
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
+
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'PROJECTTEST'
-NUM_CLASSES = 2
+PROJECT_NAME = 'ResnetTraining'
+NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 2
-MAX_EPOCHS = 5
-TARGET_SIZE = (100, 100)
+BATCH_SIZE = 64
+MAX_EPOCHS = 100
+TARGET_SIZE = (224, 224)
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 10
 GPUS = -1
+
+models_list = [
+        ResNetModel(NUM_CLASSES)
+    ]
 
 
 def seed_all(seed: int) -> None:
@@ -35,12 +40,9 @@ def seed_all(seed: int) -> None:
 
 def main():
     seed_all(SEED)
-    models_list = [
-        ResNetModel(NUM_CLASSES)
-    ]
     for model in models_list:
         data_module = EyeDiseaseDataModule(
-            csv_path=r'../data/test.csv',
+            csv_path='/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv',
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',
@@ -65,7 +67,7 @@ def main():
             'model_type': type(model).__name__,
             'lr': LR,
             'batch_size': BATCH_SIZE,
-            'optimizer': 'adam',
+            'optimizer': 'Adam',
             'num_classes': NUM_CLASSES
         }
 

@@ -45,12 +45,12 @@ def train_test(
         gpus=gpus,
         callbacks=callbacks,
         logger=logger,
-        precison=precision,
+        precision=precision,
         strategy=strategy
     )
     trainer.fit(
         model=module,
-        train_dataloader=datamodule.train_dataloader(),
+        train_dataloaders=datamodule.train_dataloader(),
         val_dataloaders=datamodule.val_dataloader()
     )
     trainer.test(
