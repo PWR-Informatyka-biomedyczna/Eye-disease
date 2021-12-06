@@ -1,11 +1,10 @@
 import random
 
 import numpy as np
-import cv2
 import torch
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-
+from torchvision.transforms import InterpolationMode
 
 
 from dataset import EyeDiseaseDataModule, resamplers
@@ -14,23 +13,18 @@ from methods.resnet import ResNetModel
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
-
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'ResnetTraining'
-NUM_CLASSES = 4
+PROJECT_NAME = 'PROJECTTEST'
+NUM_CLASSES = 2
 LR = 1e-4
-BATCH_SIZE = 64
-MAX_EPOCHS = 100
-TARGET_SIZE = (224, 224)
+BATCH_SIZE = 2
+MAX_EPOCHS = 5
+TARGET_SIZE = (100, 100)
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 10
 GPUS = -1
-
-models_list = [
-        ResNetModel(NUM_CLASSES)
-    ]
 
 
 def seed_all(seed: int) -> None:
@@ -41,20 +35,23 @@ def seed_all(seed: int) -> None:
 
 def main():
     seed_all(SEED)
+    models_list = [
+        ResNetModel(NUM_CLASSES)
+    ]
     for model in models_list:
         data_module = EyeDiseaseDataModule(
-            csv_path='/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv',
+            csv_path=r'../data/test.',
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',
-            train_transforms=train_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
-            val_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
-            test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
+            train_transforms=train_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
+            val_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
+            test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
             image_path_name='Path',
             target_name='Label',
             split_name='Split',
             batch_size=BATCH_SIZE,
-            num_workers=1,
+            num_workers=12,
             shuffle_train=True,
             resampler=resamplers.to_lowest_resampler(
                 target_label='Label',
@@ -68,7 +65,7 @@ def main():
             'model_type': type(model).__name__,
             'lr': LR,
             'batch_size': BATCH_SIZE,
-            'optimizer': 'Adam',
+            'optimizer': 'adam',
             'num_classes': NUM_CLASSES
         }
 
