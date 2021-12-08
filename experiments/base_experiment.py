@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
-from methods.resnet import ResNetModel
+from methods import ResNet18Model, ResNet50Model
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
@@ -25,11 +25,12 @@ MAX_EPOCHS = 100
 TARGET_SIZE = (224, 224)
 NORMALIZE = True
 MONITOR = 'val_loss'
-PATIENCE = 10
+PATIENCE = 5
 GPUS = -1
 
 models_list = [
-        ResNetModel(NUM_CLASSES)
+        #ResNetModel(NUM_CLASSES)
+        ResNet50Model(NUM_CLASSES)
     ]
 
 

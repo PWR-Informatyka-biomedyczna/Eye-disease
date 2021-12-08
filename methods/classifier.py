@@ -89,7 +89,6 @@ class Classifier(pl.LightningModule):
         loss = self.criterion(y_pred, batch['target'])
         self.log('val_loss', loss, on_epoch=True, prog_bar=True)
         self._calculate_score(y_pred, batch['target'], split='val', on_step=False, on_epoch=True)
-
         return loss
 
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> None:
