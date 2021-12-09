@@ -9,7 +9,7 @@ from methods.base_model import BaseModel
 class ResNet18Model(BaseModel):
 
     def __init__(self, num_classes: int):
-        super(ResNetModel, self).__init__(num_classes)
+        super(ResNet18Model, self).__init__(num_classes)
         self._feature_extractor = resnet18(True)
         net_fc = self._feature_extractor.fc.in_features
         self._feature_extractor.fc = nn.Linear(net_fc, self.num_classes)
@@ -22,7 +22,7 @@ class ResNet18Model(BaseModel):
 class ResNet50Model(BaseModel):
 
     def __init__(self, num_classes: int):
-        super().__init__(num_classes)
+        super(ResNet50Model, self).__init__(num_classes)
         self._feature_extractor = resnet50(True)
         net_fc = self._feature_extractor.fc.in_features
         self._feature_extractor.fc = nn.Linear(net_fc, self.num_classes)
