@@ -5,3 +5,5 @@ storage/*
 logs/*
 data/*
 checkpoints/*
+test.py
+augment.py
