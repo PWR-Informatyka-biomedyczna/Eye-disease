@@ -2,7 +2,6 @@ from typing import Tuple, Dict
 from torchvision.transforms import transforms, InterpolationMode
 
 from PIL import Image
-import torch
 import numpy as np
 import albumentations as A
 import imgaug as ia
@@ -49,16 +48,16 @@ def train_transforms(
                         A.GaussianBlur(p=0.3),
                         A.Equalize(by_channels=False, p=0.3)
                     ])
-    aug_ia = iaa.Sometimes(p=1, then_list=iaa.OneOf([
-                iaa.AdditiveGaussianNoise(),
-                iaa.LinearContrast(),
-                iaa.AddToBrightness()
-             ]))
+    # aug_ia = iaa.Sometimes(p=1, then_list=iaa.OneOf([
+    #             iaa.AdditiveGaussianNoise(),
+    #             iaa.LinearContrast(),
+    #             iaa.AddToBrightness()
+    #          ]))
 
     albument = Albument(aug_A)
     transforms_list = [
         ToNumpy(),
-        albument,
+        _albument,
         FetchImageFromAlbumentationsDict(),
         # img_aug,
         transforms.ToTensor()

@@ -1,10 +1,5 @@
 from typing import Tuple
-from warnings import warn
-
-import numpy as np
 import torch
-from torch.nn.functional import one_hot
-from sklearn.metrics import roc_auc_score
 
 
 def mask(y_pred: torch.Tensor, y_true: torch.Tensor, current_class: int) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -44,53 +39,39 @@ def false_negative(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     return torch.logical_and(y_pred != y_true, torch.logical_not(y_pred)).sum()
 
 
-def sensitivity(probas: torch.Tensor, y_true: torch.Tensor, current_class: int) -> torch.Tensor:
+def sensitivity(logits: torch.Tensor, y_true: torch.Tensor, current_class: int) -> torch.Tensor:
     """
     Calculate sensitivity:
 
     sp = TP / (TP + FN)
     """
-    y_pred = torch.argmax(probas, axis=1)
+    y_pred = torch.argmax(logits, axis=1)
     new_pred, new_true = mask(y_pred, y_true, current_class)
     tp = true_positive(new_pred, new_true)
     fn = false_negative(new_pred, new_true)
     return tp / (tp + fn + 1e-10)
 
-def specificity(probas: torch.Tensor, y_true: torch.Tensor, current_class: int) -> torch.Tensor:
+def specificity(logits: torch.Tensor, y_true: torch.Tensor, current_class: int) -> torch.Tensor:
     """
     Calculate specificity:
 
     SPF = TN / (TN + FP)
     """
-    y_pred = torch.argmax(probas, axis=1)
+    y_pred = torch.argmax(logits, axis=1)
     new_pred, new_true = mask(y_pred, y_true, current_class)
     tn = true_negative(new_pred, new_true)
     fp = false_positive(new_pred, new_true)
     return tn / (tn + fp + 1e-10)  
 
-def f1_score(probas: torch.Tensor, y_true: torch.Tensor, current_class: int):
+def f1_score(logits: torch.Tensor, y_true: torch.Tensor, current_class: int):
     """
     Calculate f1_score:
 
     F1 = 2 * TP / (2 * TP + FP + FN)
     """
-    y_pred = torch.argmax(probas, axis=1)
+    y_pred = torch.argmax(logits, axis=1)
     new_pred, new_true = mask(y_pred, y_true, current_class)
     tp = true_positive(new_pred, new_true)
     fp = false_positive(new_pred, new_true)
     fn = false_negative(new_pred, new_true)
     return 2 * tp / (2 * tp + fp + fn + 1e-10)   
-
-
-def roc_auc(probas: torch.Tensor, y_true: torch.Tensor, strategy: str = 'ovr'):
-    """
-    Calculate ROC AUC
-    """
-    probas = probas.cpu()
-    y_true = y_true.cpu()
-    y_true_one_hot = one_hot(y_true, probas.shape[1])
-    try:
-        return roc_auc_score(y_true_one_hot, probas, multi_class=strategy)
-    except ValueError as e:
-        warn('ROC AUC is not defined for y_true.unique().len => 1. Ommited this value', category=None, stacklevel=1)
-    return -1
