@@ -1,30 +1,37 @@
 import random
 
 import numpy as np
+import cv2
 import torch
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from torchvision.transforms import InterpolationMode
+
 
 
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
-from methods.resnet import ResNetModel
+from methods import ResNet18Model, ResNet50Model
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
+
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'PROJECTTEST'
-NUM_CLASSES = 2
+PROJECT_NAME = 'ResnetTrainingFixed'
+NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 2
-MAX_EPOCHS = 5
-TARGET_SIZE = (100, 100)
+BATCH_SIZE = 16
+MAX_EPOCHS = 100
+TARGET_SIZE = (224, 224)
 NORMALIZE = True
 MONITOR = 'val_loss'
-PATIENCE = 10
+PATIENCE = 5
 GPUS = -1
+
+models_list = [
+        ResNet18Model(NUM_CLASSES),
+        ResNet50Model(NUM_CLASSES)
+    ]
 
 
 def seed_all(seed: int) -> None:
@@ -35,23 +42,20 @@ def seed_all(seed: int) -> None:
 
 def main():
     seed_all(SEED)
-    models_list = [
-        ResNetModel(NUM_CLASSES)
-    ]
     for model in models_list:
         data_module = EyeDiseaseDataModule(
-            csv_path=r'../data/test.',
+            csv_path='/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv',
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',
-            train_transforms=train_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
-            val_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
-            test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, InterpolationMode.NEAREST),
+            train_transforms=train_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
+            val_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
+            test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
             image_path_name='Path',
             target_name='Label',
             split_name='Split',
             batch_size=BATCH_SIZE,
-            num_workers=12,
+            num_workers=1,
             shuffle_train=True,
             resampler=resamplers.to_lowest_resampler(
                 target_label='Label',
@@ -65,7 +69,7 @@ def main():
             'model_type': type(model).__name__,
             'lr': LR,
             'batch_size': BATCH_SIZE,
-            'optimizer': 'adam',
+            'optimizer': 'Adam',
             'num_classes': NUM_CLASSES
         }
 

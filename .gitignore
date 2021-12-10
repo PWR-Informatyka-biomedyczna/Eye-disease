@@ -7,3 +7,4 @@ data/*
 checkpoints/*
 test.py
 augment.py
+.ipynb_checkpoints

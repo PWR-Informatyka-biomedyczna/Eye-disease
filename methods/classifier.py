@@ -1,10 +1,11 @@
 from typing import NoReturn, Dict
+from functools import partial
 
 import torch
 from torch import nn
 import pytorch_lightning as pl
-from torchmetrics.functional import accuracy, f1, auc
-from utils.metrics import f1_score, sensitivity, specificity
+from torchmetrics.functional import accuracy, f1
+from utils.metrics import f1_score, sensitivity, specificity, roc_auc
 
 from methods.base_model import BaseModel
 
@@ -40,13 +41,21 @@ class Classifier(pl.LightningModule):
             self.metrics[key] = {
                 'accuracy': lambda x, y: accuracy(x, y),
                 'f1_micro': lambda x, y: f1(x, y, num_classes=num_classes),
-                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro')
+                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro'),
+                'roc_auc_ovr': lambda x, y: roc_auc(x, y, strategy='ovr')
             }
+            f1_funcs = []
+            sensitivity_funcs = []
+            specificity_funcs = []
             for cls in range(num_classes):
-                self.metrics[key][f'f1_class_{cls}'] =  lambda x, y: f1_score(x, y, current_class=cls)
-                self.metrics[key][f'sensitivity_class_{cls}'] = lambda x, y: sensitivity(x, y, current_class=cls)
-                self.metrics[key][f'specificity_class_{cls}'] = lambda x, y: specificity(x, y, current_class=cls)
-        # criterion config
+                f1_funcs.append(partial(f1_score, current_class=cls))
+                sensitivity_funcs.append(partial(sensitivity, current_class=cls))
+                specificity_funcs.append(partial(specificity, current_class=cls))
+
+            for f1_fun, sens, spec, cls in zip(f1_funcs, sensitivity_funcs, specificity_funcs, range(num_classes)):
+                self.metrics[key][f'f1_class_{cls}'] = f1_fun
+                self.metrics[key][f'sensitivity_class_{cls}'] = sens
+                self.metrics[key][f'specificity_class_{cls}'] = spec
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -89,7 +98,6 @@ class Classifier(pl.LightningModule):
         loss = self.criterion(y_pred, batch['target'])
         self.log('val_loss', loss, on_epoch=True, prog_bar=True)
         self._calculate_score(y_pred, batch['target'], split='val', on_step=False, on_epoch=True)
-
         return loss
 
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> None:
@@ -133,3 +141,4 @@ class Classifier(pl.LightningModule):
         for metric_name, metric in self.metrics[split].items():
             score[f'{split}_{metric_name}'] = metric(output, y_true)
         self.log_dict(score, on_step=on_step, on_epoch=on_epoch)
+        self.log_dict({'predictions': y_pred, 'true labels': y_true})

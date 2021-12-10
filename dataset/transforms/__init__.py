@@ -2,7 +2,6 @@ from typing import Tuple, Dict
 from torchvision.transforms import transforms, InterpolationMode
 
 from PIL import Image
-import torch
 import numpy as np
 import albumentations as A
 import imgaug as ia
@@ -21,21 +20,14 @@ class FetchImageFromAlbumentationsDict:
     def __call__(self, x: Dict[str, np.ndarray]) -> np.ndarray:
         return x['image']
 
-class FromNumpy():
-
-    def __call__(self, x: np.ndarray) -> torch.Tensor:
-        return torch.from_numpy(x)
-
 
 def train_transforms(
     target_size: Tuple[int, int],
     normalize: bool = True, 
     interpolation_mode = cv2.INTER_NEAREST) -> transforms.Compose:
-    def albument(img):
+    def _albument(img):
         return aug_A(image=img)
-    
-    def img_aug(img):
-        return aug_ia(images=img)
+
     aug_A = A.Compose(
                     [
                         A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode),
@@ -45,15 +37,15 @@ def train_transforms(
                         A.GaussianBlur(p=0.3),
                         A.Equalize(by_channels=False, p=0.3)
                     ])
-    aug_ia = iaa.Sometimes(p=1, then_list=iaa.OneOf([
-                iaa.AdditiveGaussianNoise(),
-                iaa.LinearContrast(),
-                iaa.AddToBrightness()
-             ]))
+    # aug_ia = iaa.Sometimes(p=1, then_list=iaa.OneOf([
+    #             iaa.AdditiveGaussianNoise(),
+    #             iaa.LinearContrast(),
+    #             iaa.AddToBrightness()
+    #          ]))
 
     transforms_list = [
         ToNumpy(),
-        albument,
+        _albument,
         FetchImageFromAlbumentationsDict(),
         # img_aug,
         transforms.ToTensor()
