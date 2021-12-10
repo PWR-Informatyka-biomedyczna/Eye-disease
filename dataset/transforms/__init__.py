@@ -21,21 +21,25 @@ class FetchImageFromAlbumentationsDict:
     def __call__(self, x: Dict[str, np.ndarray]) -> np.ndarray:
         return x['image']
 
-class FromNumpy():
+class FromNumpy:
 
     def __call__(self, x: np.ndarray) -> torch.Tensor:
         return torch.from_numpy(x)
+
+class Albument:
+
+    def __init__(self, augment) -> None:
+        self.augment = augment
+
+    def __call__(self, img: Image) -> Image:
+        return self.augment(image=img)
 
 
 def train_transforms(
     target_size: Tuple[int, int],
     normalize: bool = True, 
     interpolation_mode = cv2.INTER_NEAREST) -> transforms.Compose:
-    def albument(img):
-        return aug_A(image=img)
-    
-    def img_aug(img):
-        return aug_ia(images=img)
+
     aug_A = A.Compose(
                     [
                         A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode),
@@ -51,6 +55,7 @@ def train_transforms(
                 iaa.AddToBrightness()
              ]))
 
+    albument = Albument(aug_A)
     transforms_list = [
         ToNumpy(),
         albument,
@@ -79,23 +84,3 @@ def test_val_transforms(
         ))
     return transforms.Compose(transforms_list)
 
-def extended_train_transforms(
-        target_size: Tuple[int, int], 
-        interpolation_mode = cv2.INTER_NEAREST) -> transforms.Compose:
-    
-    aug_A = A.Compose(
-                    [
-                        A.Resize(target_size[0], target_size[1]),
-                        A.Rotate(limit=(-5, 5), p=0.5, interpolation=interpolation_mode),
-                        A.HorizontalFlip(p=0.5),
-                        A.VerticalFlip(p=0.5),
-                        A.GaussianBlur(blur_limit=(5, 5), p=0.3),
-                        A.Equalize(by_channels=False, p=0.2)
-                    ])
-    aug_ia = iaa.OneOf([
-                iaa.AdditiveGaussianNoise(),
-                iaa.LinearContrast(),
-                iaa.AddToBrightness()
-             ])
-    # Tune parametry tych augmentacji
-    return aug_A, aug_ia
