@@ -2,10 +2,8 @@ from typing import Callable
 import pandas as pd
 
 
-def identity_resampler() -> Callable:
-    def _resampler(df: pd.DataFrame) -> pd.DataFrame:
-        return df
-    return _resampler
+def identity_resampler(df: pd.DataFrame) -> pd.DataFrame:
+    return df
 
 
 def to_lowest_resampler(target_label: str = 'Label', train_split_name: str = 'train') -> Callable:

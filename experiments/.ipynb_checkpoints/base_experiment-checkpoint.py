@@ -57,10 +57,7 @@ def main():
             batch_size=BATCH_SIZE,
             num_workers=1,
             shuffle_train=True,
-            resampler=resamplers.to_lowest_resampler(
-                target_label='Label',
-                train_split_name='train'
-            )
+            resampler=resamplers.identity_resampler
         )
         data_module.prepare_data()
 
