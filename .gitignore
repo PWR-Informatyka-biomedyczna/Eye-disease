@@ -5,3 +5,4 @@ storage/*
 logs/*
 data/*
 checkpoints/*
+.ipynb_checkpoints

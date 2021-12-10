@@ -1,4 +1,7 @@
+import time
+import hashlib
 import random
+import os
 
 import numpy as np
 import cv2
@@ -20,17 +23,18 @@ SEED = 0
 PROJECT_NAME = 'ResnetTrainingFixed'
 NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 MAX_EPOCHS = 100
 TARGET_SIZE = (224, 224)
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 5
 GPUS = -1
+ENTITY_NAME = 'kn-bmi'
 
 models_list = [
         ResNet18Model(NUM_CLASSES),
-        ResNet50Model(NUM_CLASSES)
+        #ResNet50Model(NUM_CLASSES)
     ]
 
 
@@ -41,8 +45,17 @@ def seed_all(seed: int) -> None:
 
 
 def main():
+    COUNTER = 0
     seed_all(SEED)
     for model in models_list:
+        run_id = hashlib.md5(
+            bytes(str(time.time()), encoding='utf-8')
+        ).hexdigest()
+
+        checkpoints_run_dir = CHECKPOINTS_DIR / run_id
+        COUNTER += 1
+        print(run_id, 'ZROBIONO', time.time(), 'COUNTER ', COUNTER)
+        os.mkdir(checkpoints_run_dir)
         data_module = EyeDiseaseDataModule(
             csv_path='/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv',
             train_split_name='train',
@@ -57,10 +70,7 @@ def main():
             batch_size=BATCH_SIZE,
             num_workers=1,
             shuffle_train=True,
-            resampler=resamplers.to_lowest_resampler(
-                target_label='Label',
-                train_split_name='train'
-            )
+            resampler=resamplers.identity_resampler()
         )
         data_module.prepare_data()
 
@@ -70,26 +80,22 @@ def main():
             'lr': LR,
             'batch_size': BATCH_SIZE,
             'optimizer': 'Adam',
-            'num_classes': NUM_CLASSES
+            'num_classes': NUM_CLASSES,
+            'run_id': run_id
         }
 
         logger = WandbLogger(
             save_dir=LOGS_DIR,
             config=hparams,
             project=PROJECT_NAME,
-            log_model=False
+            log_model=False,
+            entity=ENTITY_NAME
         )
 
         callbacks = [
             EarlyStopping(
                 monitor=MONITOR,
                 patience=PATIENCE,
-                mode='min'
-            ),
-            ModelCheckpoint(
-                dirpath=CHECKPOINTS_DIR,
-                save_top_k=1,
-                monitor=MONITOR,
                 mode='min'
             )
         ]
