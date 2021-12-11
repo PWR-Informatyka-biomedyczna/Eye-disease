@@ -15,7 +15,7 @@ class EyeDiseaseData(Dataset):
                  transforms: Compose,
                  image_path_name: str = 'path',
                  label_name: str = 'target'):
-        self.data = df[:1000]
+        self.data = df
         self.transforms = transforms
         self.path_name = image_path_name
         self.label_name = label_name
