@@ -7,7 +7,8 @@ from PIL import Image
 
 
 PATH_COLUMN_NAME = 'Path'
-CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv'
+# Changed to resized dataset csv
+CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv'
 
 
 class Counter:
