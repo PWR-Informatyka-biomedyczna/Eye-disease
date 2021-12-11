@@ -8,7 +8,7 @@ from PIL import Image
 
 PATH_COLUMN_NAME = 'Path'
 # Changed to resized dataset csv
-CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data.csv'
+CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv'
 
 
 class Counter:
@@ -54,9 +54,9 @@ def sanity_check_cv2(df: pd.DataFrame):
 def main():
     df = pd.read_csv(CSV_PATH)
     pilcounter = sanity_check_pil(df)
-    #cvcounter = sanity_check_cv2(df)
+    cvcounter = sanity_check_cv2(df)
     print(f'PIL: {pilcounter}')
-    #print(f'CV2: {cvcounter}')
+    print(f'CV2: {cvcounter}')
     print(f'Total data: {len(df)}')
 
 

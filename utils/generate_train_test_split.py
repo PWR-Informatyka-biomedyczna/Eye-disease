@@ -4,8 +4,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
-CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/collected_data.csv'
-NEW_CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv'
+CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data.csv'
+NEW_CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv'
 SPLIT_RATIOS = {
     'train_dev': 0.85,
     'train': 0.85

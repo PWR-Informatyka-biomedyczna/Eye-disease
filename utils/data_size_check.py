@@ -1,11 +1,7 @@
-import albumentations as A
 import pandas as pd
 import tqdm
-import cv2
-import os
-import numpy as np
+
 from PIL import Image
-from pathlib import Path
 
 
 SIZE = (380, 380)

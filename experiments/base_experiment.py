@@ -13,17 +13,17 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
-from methods import ResNet18Model, ResNet50Model
+from methods import ResNet18Model, ResNet50Model, EfficientNetB0
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
 
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'ResnetTrainingFixed'
+PROJECT_NAME = 'EfficientNetTraining'
 NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 64
+BATCH_SIZE = 16
 MAX_EPOCHS = 100
 TARGET_SIZE = (224, 224)
 NORMALIZE = True
@@ -34,7 +34,8 @@ ENTITY_NAME = 'kn-bmi'
 
 models_list = [
         ResNet18Model(NUM_CLASSES),
-        #ResNet50Model(NUM_CLASSES)
+        ResNet50Model(NUM_CLASSES),
+        EfficientNetB0(NUM_CLASSES)
     ]
 
 
@@ -57,7 +58,7 @@ def main():
         print(run_id, 'ZROBIONO', time.time(), 'COUNTER ', COUNTER)
         os.mkdir(checkpoints_run_dir)
         data_module = EyeDiseaseDataModule(
-            csv_path='/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv',
+            csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',
