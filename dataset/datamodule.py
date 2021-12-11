@@ -25,7 +25,7 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  batch_size: int = 16,
                  num_workers: int = 12,
                  shuffle_train: bool = True,
-                 resampler: Callable = identity_resampler()
+                 resampler: Callable = identity_resampler
                  ):
         super(EyeDiseaseDataModule, self).__init__()
         self.resampler: Callable = resampler

@@ -20,7 +20,7 @@ from training import train_test
 
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'EfficientNetTraining'
+PROJECT_NAME = 'ModelsTraining'
 NUM_CLASSES = 4
 LR = 1e-4
 BATCH_SIZE = 16
@@ -33,9 +33,9 @@ GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 
 models_list = [
+        EfficientNetB0(NUM_CLASSES),
         ResNet18Model(NUM_CLASSES),
-        ResNet50Model(NUM_CLASSES),
-        EfficientNetB0(NUM_CLASSES)
+        ResNet50Model(NUM_CLASSES)
     ]
 
 
@@ -69,9 +69,9 @@ def main():
             target_name='Label',
             split_name='Split',
             batch_size=BATCH_SIZE,
-            num_workers=1,
+            num_workers=12,
             shuffle_train=True,
-            resampler=resamplers.identity_resampler()
+            resampler=resamplers.identity_resampler
         )
         data_module.prepare_data()
 

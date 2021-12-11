@@ -38,11 +38,14 @@ class Classifier(pl.LightningModule):
         # metrics config
         self.metrics = {}
         for key in ['val', 'test']:
+            f1_micro = partial(f1, num_classes=num_classes)
+            f1_macro = partial(f1, num_classes=num_classes, average='macro')
+            roc_auc_ovr = partial(roc_auc, strategy='ovr')
             self.metrics[key] = {
-                'accuracy': lambda x, y: accuracy(x, y),
-                'f1_micro': lambda x, y: f1(x, y, num_classes=num_classes),
-                'f1_macro': lambda x, y: f1(x, y, num_classes=num_classes, average='macro'),
-                'roc_auc_ovr': lambda x, y: roc_auc(x, y, strategy='ovr')
+                'accuracy': accuracy,
+                'f1_micro': f1_micro,
+                'f1_macro': f1_macro,
+                'roc_auc_ovr': roc_auc_ovr
             }
             f1_funcs = []
             sensitivity_funcs = []
