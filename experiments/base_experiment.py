@@ -20,7 +20,7 @@ from training import train_test
 
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'EfficientNetTraining'
+PROJECT_NAME = 'ModelsTraining'
 NUM_CLASSES = 4
 LR = 1e-4
 BATCH_SIZE = 16
