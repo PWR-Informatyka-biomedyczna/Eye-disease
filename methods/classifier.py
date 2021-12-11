@@ -141,4 +141,3 @@ class Classifier(pl.LightningModule):
         for metric_name, metric in self.metrics[split].items():
             score[f'{split}_{metric_name}'] = metric(output, y_true)
         self.log_dict(score, on_step=on_step, on_epoch=on_epoch)
-        self.log_dict({'predictions': y_pred, 'true labels': y_true})
