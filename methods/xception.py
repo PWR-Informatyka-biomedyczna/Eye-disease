@@ -1,4 +1,5 @@
 import abc
+import math
 import typing
 from typing import Dict
 import torch
@@ -121,9 +122,17 @@ class XceptionModel(BaseModel):
 
         self.model.add_module("Last Layer", module=LogisticRegression(2048, num_classes))
 
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
     @abc.abstractmethod
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        return self.model(x)
+        return self.model(x['input'])
 
 
 class SeparableConvolution(nn.Module):
@@ -135,7 +144,7 @@ class SeparableConvolution(nn.Module):
         self.pointwise = nn.Conv2d(in_channels, out_channels, (1, 1), bias=bias)
 
     @abc.abstractmethod
-    def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.depthwise(x)
         out = self.pointwise(out)
         return out
@@ -148,7 +157,7 @@ class ResidualConnection(nn.Module):
         self.residual_sequention = residual_sequention
 
     @abc.abstractmethod
-    def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.sequention(x) + self.residual_sequention(x)
 
 
@@ -157,7 +166,7 @@ class GlobalAveragePooling(nn.Module):
         super(GlobalAveragePooling, self).__init__()
 
     @abc.abstractmethod
-    def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = torch.mean(x, (2, 3))
         return out
 
@@ -167,6 +176,6 @@ class LogisticRegression(nn.Module):
         super(LogisticRegression, self).__init__()
         self.linear = torch.nn.Linear(input_dim, output_dim)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = torch.sigmoid(self.linear(x))
         return out
