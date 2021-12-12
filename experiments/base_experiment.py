@@ -13,7 +13,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
-from methods import ResNet18Model, ResNet50Model, EfficientNetB0
+from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
@@ -23,9 +23,9 @@ SEED = 0
 PROJECT_NAME = 'ModelsTraining'
 NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 MAX_EPOCHS = 100
-TARGET_SIZE = (224, 224)
+TARGET_SIZE = (260, 260)
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 5
@@ -33,9 +33,10 @@ GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 
 models_list = [
-        EfficientNetB0(NUM_CLASSES),
-        ResNet18Model(NUM_CLASSES),
-        ResNet50Model(NUM_CLASSES)
+        #EfficientNetB0(NUM_CLASSES),
+        EfficientNetB2(NUM_CLASSES),
+        #ResNet18Model(NUM_CLASSES),
+        #ResNet50Model(NUM_CLASSES)
     ]
 
 
