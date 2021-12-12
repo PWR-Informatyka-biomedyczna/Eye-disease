@@ -8,10 +8,10 @@ from torch import nn
 from methods import BaseModel
 
 
-class XceptionModel(BaseModel):
+class Xception(BaseModel):
 
     def __init__(self, num_classes: int, fully_connected_layer: nn.Module = None):
-        super(XceptionModel, self).__init__(num_classes)
+        super(Xception, self).__init__(num_classes)
         middle_flow_modules = []
         for i in range(8):
             middle_flow_modules.append(
