@@ -13,6 +13,7 @@ class EfficientNetB0(BaseModel):
         self._feature_extractor = efficientnet_b0(True)
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
+        self.input_size = (224, 224)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -25,6 +26,7 @@ class EfficientNetB1(BaseModel):
         self._feature_extractor = efficientnet_b1(True)
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
+        self.input_size = (240, 240)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -37,6 +39,7 @@ class EfficientNetB2(BaseModel):
         self._feature_extractor = efficientnet_b2(True)
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
+        self.input_size = (260, 260)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -49,6 +52,7 @@ class EfficientNetB3(BaseModel):
         self._feature_extractor = efficientnet_b3(True)
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
+        self.input_size = (300, 300)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -61,6 +65,7 @@ class EfficientNetB4(BaseModel):
         self._feature_extractor = efficientnet_b4(True)
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
+        self.input_size = (380, 380)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
