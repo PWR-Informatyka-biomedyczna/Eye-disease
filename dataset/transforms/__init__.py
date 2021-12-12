@@ -15,31 +15,20 @@ class ToNumpy:
     def __call__(self, x: Image) -> np.ndarray:
         return np.asarray(x)
 
-
-class FetchImageFromAlbumentationsDict:
-
-    def __call__(self, x: Dict[str, np.ndarray]) -> np.ndarray:
-        return x['image']
-
-class FromNumpy:
-
-    def __call__(self, x: np.ndarray) -> torch.Tensor:
-        return torch.from_numpy(x)
-
 class Albument:
 
     def __init__(self, augment) -> None:
         self.augment = augment
 
-    def __call__(self, img: Image) -> Image:
-        return self.augment(image=img)
+    def __call__(self, img: Image) -> np.ndarray:
+        return self.augment(image=img)['image']
 
 class Imgaugment:
 
     def __init__(self, augment) -> None:
         self.augment = augment
 
-    def __call__(self, img: Image) -> Image:
+    def __call__(self, img: np.ndarray) -> np.ndarray:
         augmented_images = self.augment(images=[img])
         return augmented_images[0]
 
@@ -58,17 +47,17 @@ def train_transforms(
                         A.GaussianBlur(p=0.2),
                         A.Equalize(by_channels=False, p=0.2)
                     ])
-    aug_ia = iaa.Sometimes(p=1, then_list= [
-                                    iaa.Sometimes(p=0.2, then_list=[iaa.AdditiveGaussianNoise()]),
-                                    iaa.Sometimes(p=0.2, then_list=[iaa.LinearContrast()]),
-                                    iaa.Sometimes(p=0.2, then_list=[iaa.AddToBrightness()])])
+    aug_ia = iaa.Sometimes(p=1, then_list=[
+                                        iaa.Sometimes(p=0.2, then_list=[iaa.AdditiveGaussianNoise()]),
+                                        iaa.Sometimes(p=0.3, then_list=[iaa.LinearContrast()]),
+                                        iaa.Sometimes(p=0.3, then_list=[iaa.AddToBrightness()])
+                                    ])
 
     albument = Albument(aug_A)
     imgaugment = Imgaugment(aug_ia)
     transforms_list = [
         ToNumpy(),
         albument,
-        FetchImageFromAlbumentationsDict(),
         imgaugment,
         transforms.ToTensor()
     ]
@@ -82,8 +71,12 @@ def train_transforms(
 def test_val_transforms(
     target_size: Tuple[int, int], 
     normalize: bool = True,
-    interpolation_mode: InterpolationMode = InterpolationMode.NEAREST) -> transforms.Compose:
+    interpolation_mode = cv2.INTER_NEAREST) -> transforms.Compose:
+    
+    aug_A = A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode)
+    albument = Albument(aug_A)
     transforms_list = [
+        albument,
         transforms.ToTensor()
     ]
     if normalize:

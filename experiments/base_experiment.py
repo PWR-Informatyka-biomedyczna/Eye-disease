@@ -26,12 +26,13 @@ NUM_CLASSES = 4
 LR = 1e-4
 BATCH_SIZE = 16
 MAX_EPOCHS = 100
-TARGET_SIZE = (224, 224)
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
+RESAMPLER = resamplers.identity_resampler
+WEIGHTS = [1, 1.25, 2, 1]
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
@@ -67,16 +68,16 @@ def main():
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',
-            train_transforms=train_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
-            val_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
-            test_transforms=test_val_transforms(TARGET_SIZE, NORMALIZE, cv2.INTER_NEAREST),
+            train_transforms=train_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
+            val_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
+            test_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
             image_path_name='Path',
             target_name='Label',
             split_name='Split',
             batch_size=BATCH_SIZE,
             num_workers=12,
             shuffle_train=True,
-            resampler=resamplers.identity_resampler
+            resampler=RESAMPLER
         )
         data_module.prepare_data()
 
@@ -86,6 +87,7 @@ def main():
             'lr': LR,
             'batch_size': BATCH_SIZE,
             'optimizer': 'Adam',
+            'resampler': RESAMPLER.__name__,
             'num_classes': NUM_CLASSES,
             'run_id': run_id
         }
