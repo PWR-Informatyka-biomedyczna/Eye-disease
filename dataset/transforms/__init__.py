@@ -34,6 +34,14 @@ class Albument:
     def __call__(self, img: Image) -> Image:
         return self.augment(image=img)
 
+class Imgaugment:
+
+    def __init__(self, augment) -> None:
+        self.augment = augment
+
+    def __call__(self, img: Image) -> Image:
+        return self.augment(images=list(img))
+
 
 def train_transforms(
     target_size: Tuple[int, int],
@@ -49,18 +57,18 @@ def train_transforms(
                         A.GaussianBlur(p=0.3),
                         A.Equalize(by_channels=False, p=0.3)
                     ])
-    # aug_ia = iaa.Sometimes(p=1, then_list=iaa.OneOf([
-    #             iaa.AdditiveGaussianNoise(),
-    #             iaa.LinearContrast(),
-    #             iaa.AddToBrightness()
-    #          ]))
+    aug_ia = iaa.Sometimes(p=1, then_list= [
+                                    iaa.Sometimes(p=0.2, then_list=[iaa.AdditiveGaussianNoise()]),
+                                    iaa.Sometimes(p=0.3, then_list=[iaa.LinearContrast()]),
+                                    iaa.Sometimes(p=0.3, then_list=[iaa.AddToBrightness()])])
 
     albument = Albument(aug_A)
+    imgaugment = Imgaugment(aug_ia)
     transforms_list = [
         ToNumpy(),
         albument,
         FetchImageFromAlbumentationsDict(),
-        # img_aug,
+        imgaugment,
         transforms.ToTensor()
     ]
     if normalize:
