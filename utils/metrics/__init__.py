@@ -88,9 +88,10 @@ def roc_auc(probas: torch.Tensor, y_true: torch.Tensor, strategy: str = 'ovr'):
     """
     probas = probas.cpu()
     y_true = y_true.cpu()
-    y_true_one_hot = one_hot(y_true, probas.shape[1])
-    try:
+    if len(y_true.unique()) > 1:    
+        y_true_one_hot = one_hot(y_true, probas.shape[1])
+        print(y_true_one_hot.unique())
+        y_true_one_hot = np.asarray(y_true_one_hot[0])
+        print(y_true_one_hot)
         return roc_auc_score(y_true_one_hot, probas, multi_class=strategy)
-    except ValueError as e:
-        warn('ROC AUC is not defined for y_true.unique().len => 1. Ommited this value', category=None, stacklevel=1)
     return -1
