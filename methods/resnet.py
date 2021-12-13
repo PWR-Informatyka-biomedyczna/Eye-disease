@@ -14,6 +14,7 @@ class ResNet18Model(BaseModel):
         net_fc = self._feature_extractor.fc.in_features
         self._feature_extractor.fc = nn.Linear(net_fc, self.num_classes)
         self.input_size = (224, 224)
+        self.last_layer = 'fc'
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -28,6 +29,7 @@ class ResNet50Model(BaseModel):
         net_fc = self._feature_extractor.fc.in_features
         self._feature_extractor.fc = nn.Linear(net_fc, self.num_classes)
         self.input_size = (224, 224)
+        self.last_layer = 'fc'
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
