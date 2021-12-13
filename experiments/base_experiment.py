@@ -21,10 +21,10 @@ from training import train_test
 
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'ModelsTraining'
+PROJECT_NAME = 'ResNet18Training'
 NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -36,11 +36,11 @@ WEIGHTS = [1, 1.25, 2, 1]
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
-        EfficientNetB2(NUM_CLASSES),
+        #EfficientNetB2(NUM_CLASSES),
         #Xception(NUM_CLASSES),
         #DenseNet(NUM_CLASSES),
-        ResNext50(NUM_CLASSES),
-        #ResNet18Model(NUM_CLASSES),
+        #ResNext50(NUM_CLASSES),
+        ResNet18Model(NUM_CLASSES),
         #ResNet50Model(NUM_CLASSES)
     ]
 
@@ -115,7 +115,7 @@ def main():
             gpus=GPUS,
             lr=LR,
             callbacks=callbacks,
-            logger=logger
+            logger=logger,
         )
         logger.experiment.finish()
 
