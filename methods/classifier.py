@@ -16,7 +16,8 @@ class Classifier(pl.LightningModule):
                  model: BaseModel,
                  num_classes: int,
                  lr: float,
-                 optimizer: torch.optim.Optimizer = torch.optim.Adam
+                 optimizer: torch.optim.Optimizer = torch.optim.Adam,
+                 weights: torch.Tensor = None
                  ):
         """
         Base class for classifying task
@@ -59,7 +60,7 @@ class Classifier(pl.LightningModule):
                 self.metrics[key][f'f1_class_{cls}'] = f1_fun
                 self.metrics[key][f'sensitivity_class_{cls}'] = sens
                 self.metrics[key][f'specificity_class_{cls}'] = spec
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(weight=weights)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         """

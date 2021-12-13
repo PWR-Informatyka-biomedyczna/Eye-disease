@@ -31,7 +31,7 @@ PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
-WEIGHTS = [1, 1.25, 2, 1]
+WEIGHTS = torch.transforms.ToTensor([1, 1.25, 2, 1])
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
@@ -111,7 +111,8 @@ def main():
             gpus=GPUS,
             lr=LR,
             callbacks=callbacks,
-            logger=logger
+            logger=logger,
+            weights=WEIGHTS
         )
         logger.experiment.finish()
 
