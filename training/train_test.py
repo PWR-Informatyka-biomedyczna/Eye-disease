@@ -21,7 +21,9 @@ def train_test(
         logger: LightningLoggerBase,
         optimizer: torch.optim.Optimizer = torch.optim.Adam,
         precision: int = 32,
-        strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False)):
+        strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False),
+        weights: torch.Tensor = None
+        ):
     """
     Base experiment function
     :param model:
@@ -38,7 +40,8 @@ def train_test(
         model=model,
         num_classes=num_classes,
         lr=lr,
-        optimizer=optimizer
+        optimizer=optimizer,
+        weights=weights
     )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
