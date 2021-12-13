@@ -6,6 +6,7 @@ import os
 import numpy as np
 import cv2
 import torch
+import torchvision
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -21,10 +22,10 @@ from training import train_test
 
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'ResNet18Training'
+PROJECT_NAME = 'EfficientNetTraining'
 NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 64
+BATCH_SIZE = 12
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -32,15 +33,15 @@ PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
-WEIGHTS = torch.transforms.ToTensor([1, 1.25, 2, 1])
+WEIGHTS = torch.Tensor([1, 2, 2.5, 1.5])
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
-        #EfficientNetB2(NUM_CLASSES),
+        EfficientNetB2(NUM_CLASSES),
         #Xception(NUM_CLASSES),
         #DenseNet(NUM_CLASSES),
         #ResNext50(NUM_CLASSES),
-        ResNet18Model(NUM_CLASSES),
+        #ResNet18Model(NUM_CLASSES),
         #ResNet50Model(NUM_CLASSES)
     ]
 
@@ -116,10 +117,7 @@ def main():
             lr=LR,
             callbacks=callbacks,
             logger=logger,
-<<<<<<< HEAD
-=======
             weights=WEIGHTS
->>>>>>> 01a422e81db13dc9dad82cdeb1859b35f5c8c165
         )
         logger.experiment.finish()
 
