@@ -41,11 +41,11 @@ def train_transforms(
     aug_A = A.Compose(
                     [
                         A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode),
-                        A.Rotate(limit=(-5, 5), p=0.5, interpolation=interpolation_mode),
-                        A.HorizontalFlip(p=0.5),
-                        A.VerticalFlip(p=0.5),
-                        A.GaussianBlur(p=0.3),
-                        A.Equalize(by_channels=False, p=0.3)
+                        A.Rotate(limit=(-5, 5), p=0.3, interpolation=interpolation_mode),
+                        A.HorizontalFlip(p=0.3),
+                        A.VerticalFlip(p=0.3),
+                        A.GaussianBlur(p=0.2),
+                        A.Equalize(by_channels=False, p=0.2)
                     ])
     aug_ia = iaa.Sometimes(p=1, then_list=[
                                         iaa.Sometimes(p=0.2, then_list=[iaa.AdditiveGaussianNoise()]),
