@@ -14,7 +14,12 @@ class EfficientNetB0(BaseModel):
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
         self.input_size = (224, 224)
-        self.last_layer = 'classifier[1]'
+    
+    def set_last_layer(self, layer: torch.nn.Linear):
+        self._feature_extractor.classifier[1] = layer
+    
+    def get_last_layer(self):
+        return self._feature_extractor.classifier[1]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -28,7 +33,12 @@ class EfficientNetB1(BaseModel):
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
         self.input_size = (240, 240)
-        self.last_layer = 'classifier[1]'
+    
+    def set_last_layer(self, layer: torch.nn.Linear):
+        self._feature_extractor.classifier[1] = layer
+    
+    def get_last_layer(self):
+        return self._feature_extractor.classifier[1]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -42,7 +52,12 @@ class EfficientNetB2(BaseModel):
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
         self.input_size = (260, 260)
-        self.last_layer = 'classifier[1]'
+    
+    def set_last_layer(self, layer: torch.nn.Linear):
+        self._feature_extractor.classifier[1] = layer
+    
+    def get_last_layer(self):
+        return self._feature_extractor.classifier[1]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -56,7 +71,12 @@ class EfficientNetB3(BaseModel):
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
         self.input_size = (300, 300)
-        self.last_layer = 'classifier[1]'
+    
+    def set_last_layer(self, layer: torch.nn.Linear):
+        self._feature_extractor.classifier[1] = layer
+    
+    def get_last_layer(self):
+        return self._feature_extractor.classifier[1]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -70,7 +90,12 @@ class EfficientNetB4(BaseModel):
         net_fc = self._feature_extractor.classifier[1].in_features
         self._feature_extractor.classifier[1] = nn.Linear(net_fc, self.num_classes)
         self.input_size = (380, 380)
-        self.last_layer = 'classifier[1]'
+    
+    def set_last_layer(self, layer: torch.nn.Linear):
+        self._feature_extractor.classifier[1] = layer
+    
+    def get_last_layer(self):
+        return self._feature_extractor.classifier[1]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])

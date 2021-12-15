@@ -25,11 +25,12 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  batch_size: int = 16,
                  num_workers: int = 12,
                  shuffle_train: bool = True,
-                 resampler: Callable = identity_resampler
+                 resampler: Callable = identity_resampler,
+                 pretraining: bool = False
                  ):
         super(EyeDiseaseDataModule, self).__init__()
         self.resampler: Callable = resampler
-
+        self.pretraining = pretraining
         # path
         self.csv_path: str = csv_path
         # split names
@@ -69,7 +70,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
             EyeDiseaseData(self.data['train'],
                            self.train_transforms,
                            self.image_path_name,
-                           self.target_name),
+                           self.target_name,
+                           pretraining=self.pretraining),
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
             num_workers=self.num_workers
@@ -84,7 +86,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
             EyeDiseaseData(self.data['val'],
                            self.val_transforms,
                            self.image_path_name,
-                           self.target_name),
+                           self.target_name,
+                           pretraining=self.pretraining),
             batch_size=self.batch_size,
             num_workers=self.num_workers
         )
@@ -98,7 +101,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
             EyeDiseaseData(self.data['test'],
                            self.test_transforms,
                            self.image_path_name,
-                           self.target_name),
+                           self.target_name,
+                           pretraining=self.pretraining),
             batch_size=self.batch_size,
             num_workers=self.num_workers
         )

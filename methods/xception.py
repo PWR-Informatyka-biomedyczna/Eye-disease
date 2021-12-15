@@ -122,7 +122,6 @@ class Xception(BaseModel):
             self.model.add_module("Fully Connected Layer", module=fully_connected_layer)
 
         self.model.add_module("Last Layer", module=LogisticRegression(2048, num_classes))
-        self.last_layer = "Last Layer"
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):

@@ -2,6 +2,7 @@ import time
 import hashlib
 import random
 import os
+from experiments.train_from_pretrained import MODEL_PATH
 
 import numpy as np
 import cv2
@@ -32,6 +33,7 @@ GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
 WEIGHTS = torch.transforms.ToTensor([1, 1.25, 2, 1])
+MODEL_PATH = None
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
@@ -39,6 +41,21 @@ models_list = [
         #ResNet18Model(NUM_CLASSES),
         #ResNet50Model(NUM_CLASSES)
     ]
+
+
+def load_model(model, mode: str = 'train'):
+    in_features = model.get_last_layer().in_features
+    out_features = model.get_last_layer().out_features
+    if mode == 'train':
+        if out_features > 2:
+            model.set_last_layer(torch.nn.Linear(in_features, 2))
+        model.load_state_dict(torch.load(MODEL_PATH))
+        model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+    elif mode == 'test':
+        if out_features < NUM_CLASSES:
+            model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+        model.load_state_dict(torch.load(MODEL_PATH))
+    return model
 
 
 def seed_all(seed: int) -> None:

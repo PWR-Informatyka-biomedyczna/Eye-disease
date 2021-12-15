@@ -41,12 +41,12 @@ class Classifier(pl.LightningModule):
         for key in ['val', 'test']:
             f1_micro = partial(f1, num_classes=num_classes)
             f1_macro = partial(f1, num_classes=num_classes, average='macro')
-            roc_auc_ovr = partial(roc_auc, strategy='ovr')
+            #roc_auc_ovr = partial(roc_auc, strategy='ovr')
             self.metrics[key] = {
                 'accuracy': accuracy,
                 'f1_micro': f1_micro,
                 'f1_macro': f1_macro,
-                'roc_auc_ovr': roc_auc_ovr
+                #'roc_auc_ovr': roc_auc_ovr
             }
             f1_funcs = []
             sensitivity_funcs = []

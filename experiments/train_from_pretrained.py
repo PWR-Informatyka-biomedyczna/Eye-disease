@@ -2,7 +2,6 @@ import time
 import hashlib
 import random
 import os
-from experiments.train_from_pretrained import MODEL_PATH
 
 import numpy as np
 import cv2
@@ -21,8 +20,8 @@ from training import train_test
 
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'PretrainingResNet50'
-NUM_CLASSES = 2
+PROJECT_NAME = 'PretrainedResNet50'
+NUM_CLASSES = 4
 LR = 1e-4
 BATCH_SIZE = 16
 MAX_EPOCHS = 100
@@ -32,14 +31,17 @@ PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
-WEIGHTS = torch.Tensor([1, 3])
+WEIGHTS = torch.Tensor([1, 1.5, 3, 1.5])
+MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/pretrained_nets/a9fefb3e60beb89d71f9f60f48189d43/TrainedResNet50Model.ckpt'
+TEST_ONLY = True
+
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
         #EfficientNetB2(NUM_CLASSES),
-        #ResNext50(NUM_CLASSES)
+        #ResNext50(2)
         #ResNet18Model(NUM_CLASSES),
-        ResNet50Model(NUM_CLASSES)
+        ResNet50Model(2)
     ]
 
 
@@ -56,7 +58,7 @@ def load_model(model, mode: str = 'train'):
             model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
         model.load_state_dict(torch.load(MODEL_PATH))
     return model
-    
+
 
 def seed_all(seed: int) -> None:
     np.random.seed(seed)
@@ -78,11 +80,12 @@ def main():
         COUNTER += 1
         print(run_id, 'ZROBIONO', time.time(), 'COUNTER ', COUNTER)
         os.mkdir(checkpoints_run_dir)
+        os.mkdir(pretrain_run_dir)
         data_module = EyeDiseaseDataModule(
             csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
-            train_split_name='pretrain',
-            val_split_name='preval',
-            test_split_name='pretest',
+            train_split_name='train',
+            val_split_name='val',
+            test_split_name='test',
             train_transforms=train_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
             val_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
             test_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
@@ -93,7 +96,7 @@ def main():
             num_workers=12,
             shuffle_train=True,
             resampler=RESAMPLER,
-            pretraining=True
+            pretraining=False
         )
         data_module.prepare_data()
 
@@ -126,8 +129,7 @@ def main():
                 monitor=MONITOR,
                 dirpath=pretrain_run_dir,
                 save_top_k=1,
-                filename=type(model).__name__,
-                save_weights_only=True
+                filename='Trained' + type(model).__name__,
             )
         ]
         train_test(
@@ -139,7 +141,9 @@ def main():
             lr=LR,
             callbacks=callbacks,
             logger=logger,
-            weights=WEIGHTS
+            weights=WEIGHTS,
+            load_classifier=MODEL_PATH,
+            test_only=TEST_ONLY
         )
         logger.experiment.finish()
 

@@ -76,6 +76,7 @@ def test_val_transforms(
     aug_A = A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode)
     albument = Albument(aug_A)
     transforms_list = [
+        ToNumpy(),
         albument,
         transforms.ToTensor()
     ]
