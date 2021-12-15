@@ -2,11 +2,8 @@ import time
 import hashlib
 import random
 import os
-<<<<<<< HEAD
-from experiments.train_from_pretrained import MODEL_PATH
-=======
 import datetime
->>>>>>> origin/logging-update
+from pathlib import Path
 
 import numpy as np
 import cv2
@@ -38,13 +35,10 @@ PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
-<<<<<<< HEAD
-WEIGHTS = torch.transforms.ToTensor([1, 1.25, 2, 1])
-MODEL_PATH = None
-=======
 WEIGHTS = torch.Tensor([1, 2, 2.5, 1.5])
 TYPE = 'training' # pretraining, training, training-from-pretrained
->>>>>>> origin/logging-update
+MODEL_PATH = None
+TEST_ONLY = False
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
@@ -81,11 +75,21 @@ def seed_all(seed: int) -> None:
 def main():
     seed_all(SEED)
     for model in models_list:
-        run_save_dir = TYPE + '/' + type(model).__name__ + str(datetime.datetime.now()) 
-        checkpoints_run_dir = CHECKPOINTS_DIR / run_save_dir
-        os.mkdir(checkpoints_run_dir)
+        
+        if MODEL_PATH is not None:
+            if TEST_ONLY:
+                model = load_model(model, mode='test')
+            else:
+                model = load_model(model, mode='train')
+        
+        mode = str(TYPE)
+        run_save_dir = mode + '/' + type(model).__name__  + '/' + str(datetime.datetime.now())
+        run_save_dir = run_save_dir.replace(" ", "_")
+        path = str(CHECKPOINTS_DIR)
+        checkpoints_run_dir = path + '/' + run_save_dir
+        Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
         data_module = EyeDiseaseDataModule(
-            csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
+            csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',
@@ -126,6 +130,13 @@ def main():
                 monitor=MONITOR,
                 patience=PATIENCE,
                 mode='min'
+            ),
+            ModelCheckpoint(
+                monitor=MONITOR,
+                dirpath=checkpoints_run_dir,
+                save_top_k=1,
+                filename=type(model).__name__,
+                save_weights_only=True
             )
         ]
         train_test(
@@ -137,7 +148,8 @@ def main():
             lr=LR,
             callbacks=callbacks,
             logger=logger,
-            weights=WEIGHTS
+            weights=WEIGHTS,
+            test_only=TEST_ONLY
         )
         logger.experiment.finish()
 

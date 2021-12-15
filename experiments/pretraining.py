@@ -3,6 +3,8 @@ import hashlib
 import random
 import os
 from experiments.train_from_pretrained import MODEL_PATH
+import datetime
+from pathlib import Path
 
 import numpy as np
 import cv2
@@ -24,7 +26,7 @@ SEED = 0
 PROJECT_NAME = 'PretrainingResNet50'
 NUM_CLASSES = 2
 LR = 1e-4
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -33,13 +35,14 @@ GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
 WEIGHTS = torch.Tensor([1, 3])
+TYPE = 'pretraining' # pretraining, training, training-from-pretrained
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
         #EfficientNetB2(NUM_CLASSES),
-        #ResNext50(NUM_CLASSES)
-        #ResNet18Model(NUM_CLASSES),
-        ResNet50Model(NUM_CLASSES)
+        #ResNext50(NUM_CLASSES),
+        ResNet18Model(NUM_CLASSES),
+        #ResNet50Model(NUM_CLASSES)
     ]
 
 
@@ -65,19 +68,14 @@ def seed_all(seed: int) -> None:
 
 
 def main():
-    COUNTER = 0
     seed_all(SEED)
     for model in models_list:
-
-        run_id = hashlib.md5(
-            bytes(str(time.time()), encoding='utf-8')
-        ).hexdigest()
-
-        checkpoints_run_dir = CHECKPOINTS_DIR / run_id
-        pretrain_run_dir = PRETRAINED_NETS_DIR / run_id
-        COUNTER += 1
-        print(run_id, 'ZROBIONO', time.time(), 'COUNTER ', COUNTER)
-        os.mkdir(checkpoints_run_dir)
+        mode = str(TYPE)
+        run_save_dir = mode + '/' + type(model).__name__  + '/' + str(datetime.datetime.now())
+        run_save_dir = run_save_dir.replace(" ", "_")
+        path = str(CHECKPOINTS_DIR)
+        checkpoints_run_dir = path + '/' + run_save_dir
+        Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
         data_module = EyeDiseaseDataModule(
             csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
             train_split_name='pretrain',
@@ -105,7 +103,7 @@ def main():
             'optimizer': 'Adam',
             'resampler': RESAMPLER.__name__,
             'num_classes': NUM_CLASSES,
-            'run_id': run_id
+            'run_id': run_save_dir
         }
 
         logger = WandbLogger(
@@ -124,7 +122,7 @@ def main():
             ),
             ModelCheckpoint(
                 monitor=MONITOR,
-                dirpath=pretrain_run_dir,
+                dirpath=checkpoints_run_dir,
                 save_top_k=1,
                 filename=type(model).__name__,
                 save_weights_only=True
