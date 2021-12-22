@@ -121,8 +121,9 @@ class Classifier(pl.LightningModule):
         Configure optimizer and returns it
         :return: torch optimizer
         """
-        optimizer = torch.optim.Adam(self.model.parameters(), self.lr)
-        return optimizer
+        if self.optimizer is None:
+            return torch.optim.Adam(self.model.parameters(), self.lr)
+        return self.optimizer
 
     def _calculate_score(self, y_pred: torch.Tensor, y_true: torch.Tensor, split: str, on_step: bool,
                          on_epoch: bool) -> NoReturn:
