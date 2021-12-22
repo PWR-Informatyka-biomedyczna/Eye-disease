@@ -8,6 +8,18 @@ metric:
 parameters:
   optimizer:
     values: ['adam', 'adamw', 'nadam', 'radam', 'rmsprop']
+  
+  lr_scheduler:
+    values: ['multiplicative_lr', 'cosine_lr', 'cosine_warm_lr']
+  
+  lr_lambda:
+    values: [0.99, 0.95, 0.9]
+
+  t_max:
+    values: [10, 15, 20]
+  
+  t_0:
+    values: [4, 6, 8]
 
   learning_rate:
     values: [1, 1e-1, 1e-2, 1e-3, 1e-4, 3e-4, 3e-3, 3e-2, 3e-1]
