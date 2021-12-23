@@ -20,6 +20,9 @@ parameters:
   
   t_0:
     values: [4, 6, 8]
+  
+  t_mul:
+    values: [1, 2]
 
   learning_rate:
     values: [1, 1e-1, 1e-2, 1e-3, 1e-4, 3e-4, 3e-3, 3e-2, 3e-1]

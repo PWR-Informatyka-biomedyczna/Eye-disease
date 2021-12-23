@@ -22,7 +22,8 @@ def train_test(
         optimizer: torch.optim.Optimizer = torch.optim.Adam,
         precision: int = 32,
         strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False),
-        weights: torch.Tensor = None
+        weights: torch.Tensor = None,
+        lr_scheduler: torch.optim.lr_scheduler = None
         ):
     """
     Base experiment function
@@ -41,7 +42,8 @@ def train_test(
         num_classes=num_classes,
         lr=lr,
         optimizer=optimizer,
-        weights=weights
+        weights=weights,
+        lr_scheduler=lr_scheduler
     )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
