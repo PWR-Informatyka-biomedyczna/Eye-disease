@@ -4,6 +4,7 @@ import random
 import os
 import datetime
 from pathlib import Path
+from methods.classifier import Classifier
 
 import numpy as np
 import cv2
@@ -24,10 +25,10 @@ from training import train_test
 
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'EfficientNetTraining'
+PROJECT_NAME = 'ResNextTraining'
 NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 12
+BATCH_SIZE = 16
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -39,31 +40,41 @@ WEIGHTS = torch.Tensor([1, 2, 2.5, 1.5])
 TYPE = 'training' # pretraining, training, training-from-pretrained
 MODEL_PATH = None
 TEST_ONLY = False
+DATE_NOW = str(datetime.datetime.now())
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
-        EfficientNetB2(NUM_CLASSES),
+        #EfficientNetB2(NUM_CLASSES),
         #Xception(NUM_CLASSES),
         #DenseNet(NUM_CLASSES),
-        #ResNext50(NUM_CLASSES),
+        ResNext50(NUM_CLASSES),
         #ResNet18Model(NUM_CLASSES),
         #ResNet50Model(NUM_CLASSES)
     ]
 
 
+# Przerobić na Classifier, train_test isinstance
 def load_model(model, mode: str = 'train'):
+    classifier = Classifier(
+                model=model,
+                num_classes=NUM_CLASSES,
+                lr=LR,
+                optimizer=torch.optim.Adam,
+                weights=WEIGHTS
+                )
     in_features = model.get_last_layer().in_features
     out_features = model.get_last_layer().out_features
     if mode == 'train':
         if out_features > 2:
             model.set_last_layer(torch.nn.Linear(in_features, 2))
-        model.load_state_dict(torch.load(MODEL_PATH))
-        model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+        classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, num_classes=NUM_CLASSES, lr=LR, weights=WEIGHTS[:2])
+        classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+        classifier.criterion.weight = WEIGHTS
     elif mode == 'test':
         if out_features < NUM_CLASSES:
             model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
-        model.load_state_dict(torch.load(MODEL_PATH))
-    return model
+        classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, num_classes=NUM_CLASSES, lr=LR, weights=WEIGHTS)
+    return classifier
 
 
 def seed_all(seed: int) -> None:
@@ -83,19 +94,28 @@ def main():
                 model = load_model(model, mode='train')
         
         mode = str(TYPE)
-        run_save_dir = mode + '/' + type(model).__name__  + '/' + str(datetime.datetime.now())
+        if isinstance(model, Classifier):
+            model_type = type(model.model).__name__
+            input_size = model.model.input_size
+            run_save_dir = mode + '/' + type(model.model).__name__  + '/' + str(DATE_NOW)
+        else:
+            model_type = type(model).__name__
+            input_size = model.input_size
+            run_save_dir = mode + '/' + type(model).__name__  + '/' + str(DATE_NOW)
+        
         run_save_dir = run_save_dir.replace(" ", "_")
         path = str(CHECKPOINTS_DIR)
         checkpoints_run_dir = path + '/' + run_save_dir
         Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
+        
         data_module = EyeDiseaseDataModule(
             csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
             train_split_name='train',
             val_split_name='val',
             test_split_name='test',
-            train_transforms=train_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
-            val_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
-            test_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
+            train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+            val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+            test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
             image_path_name='Path',
             target_name='Label',
             split_name='Split',
@@ -108,7 +128,7 @@ def main():
 
         hparams = {
             'dataset': type(data_module).__name__,
-            'model_type': type(model).__name__,
+            'model_type': model_type,
             'lr': LR,
             'batch_size': BATCH_SIZE,
             'optimizer': 'Adam',
@@ -135,7 +155,7 @@ def main():
                 monitor=MONITOR,
                 dirpath=checkpoints_run_dir,
                 save_top_k=1,
-                filename=type(model).__name__,
+                filename=model_type,
                 save_weights_only=True
             )
         ]

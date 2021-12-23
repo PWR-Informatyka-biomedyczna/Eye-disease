@@ -41,8 +41,8 @@ models_list = [
         #EfficientNetB0(NUM_CLASSES),
         #EfficientNetB2(NUM_CLASSES),
         #ResNext50(NUM_CLASSES),
-        ResNet18Model(NUM_CLASSES),
-        #ResNet50Model(NUM_CLASSES)
+        #ResNet18Model(NUM_CLASSES),
+        ResNet50Model(NUM_CLASSES)
     ]
 
 
