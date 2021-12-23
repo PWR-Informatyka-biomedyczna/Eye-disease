@@ -7,7 +7,7 @@ metric:
   name: val_loss
 parameters:
   optimizer:
-    values: ['adam', 'adamw', 'nadam', 'radam', 'rmsprop']
+    values: ['adam', 'adamw', 'nadam', 'radam', 'rmsprop', 'sgd']
   
   lr_scheduler:
     values: ['multiplicative_lr', 'cosine_lr', 'cosine_warm_lr']
