@@ -6,6 +6,7 @@ import os
 import numpy as np
 import cv2
 import torch
+from torch.optim import lr_scheduler
 import torchvision
 import wandb
 from pytorch_lightning.loggers import WandbLogger
@@ -71,12 +72,32 @@ def init_optimizer(model, config):
         weight_decay = config['weight_decay']
         amsgrad = config['amsgrad']
         return torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
+    elif optimizer == 'adamw':
+        beta = config['beta']
+        weight_decay = config['weight_decay']
+        amsgrad = config['amsgrad']
+        return torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
     elif optimizer == 'adamax':
         beta = config['beta']
         weight_decay = config['weight_decay']
         return torch.optim.Adamax(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay)
     return None
 
+
+def init_scheduler(optimizer, config):
+    scheduler = config['lr_scheduler']
+    if scheduler == 'multiplicative_lr':
+        lr_lambda = lambda epoch: config['lr_lambda']
+        return torch.optim.lr_scheduler.MultiplicativeLR(optimizer=optimizer, lr_lambda=lr_lambda)
+    elif scheduler == 'cosine_lr':
+        t_max = config['t_max']
+        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=t_max)
+    elif scheduler == 'cosine_warm_lr':
+        t_max = config['t_max']
+        t_0 = config['t_0']
+        t_mul = config['t_mul']
+        return torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer=optimizer, T_0=t_0, T_mult=t_mul)
+    return None
 
 def main():
     COUNTER = 0
@@ -89,6 +110,7 @@ def main():
             bytes(str(time.time()), encoding='utf-8')
         ).hexdigest()
         optimizer = init_optimizer(model, config)
+        lr_scheduler = init_scheduler(optimizer, config)
         checkpoints_run_dir = CHECKPOINTS_DIR / run_id
         COUNTER += 1
         print(run_id, 'ZROBIONO', time.time(), 'COUNTER ', COUNTER)
@@ -147,7 +169,8 @@ def main():
             callbacks=callbacks,
             logger=logger,
             weights=weights,
-            optimizer=optimizer
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler
         )
         logger.experiment.finish()
 
