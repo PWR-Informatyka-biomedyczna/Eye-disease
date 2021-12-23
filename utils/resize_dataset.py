@@ -17,27 +17,24 @@ def make_dirs(paths):
 def change_dirs(paths):
     new_paths = []
     for path in paths:
-        new_path = path.replace("eye_image_classification/data", "eye_image_classification/data_resized")
+        new_path = path.replace("eye_image_classification/data_resized", "eye_image_classification/data_resized_224")
         new_paths.append(new_path)
     return new_paths
 
 def transform_copy_img(path, new_path):
     img = Image.open(path)
     img = np.asarray(img)
-    img = A.Resize(380, 380, interpolation=cv2.INTER_NEAREST)(image=img)['image']
+    img = A.Resize(224, 224, interpolation=cv2.INTER_NEAREST)(image=img)['image']
     img = Image.fromarray(img)
     img.save(new_path)
 
-data = pd.read_csv('/media/data/adam_chlopowiec/eye_image_classification/collected_data.csv')
+data = pd.read_csv('/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv')
 paths = data['Path']
-#print(data.head(5))
 
 new_paths = change_dirs(paths)
-#for path in paths:
-#    print(path)
 #make_dirs(new_paths)
 #for path, new_path in tqdm.tqdm(zip(paths, new_paths)):
 #    transform_copy_img(path, new_path)
 
 data['Path'] = new_paths
-data.to_csv('../resized_collected_data.csv')
+data.to_csv('/home/adam_chlopowiec/data/eye_image_classification/resized_224x224_collected_data_splits.csv')

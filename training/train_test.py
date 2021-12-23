@@ -23,7 +23,8 @@ def train_test(
         precision: int = 32,
         strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False),
         weights: torch.Tensor = None,
-        lr_scheduler: torch.optim.lr_scheduler = None
+        lr_scheduler: torch.optim.lr_scheduler = None,
+        test_only: bool = False
         ):
     """
     Base experiment function
@@ -37,14 +38,17 @@ def train_test(
     :param logger:
     :return:
     """
-    module = Classifier(
-        model=model,
-        num_classes=num_classes,
-        lr=lr,
-        optimizer=optimizer,
-        weights=weights,
-        lr_scheduler=lr_scheduler
-    )
+    if isinstance(model, Classifier):
+        module = model
+    else:
+        module = Classifier(
+            model=model,
+            num_classes=num_classes,
+            lr=lr,
+            optimizer=optimizer,
+            weights=weights,
+            lr_scheduler=lr_scheduler
+        )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
         gpus=gpus,
@@ -53,11 +57,17 @@ def train_test(
         precision=precision,
         strategy=strategy
     )
-    trainer.fit(
-        model=module,
-        train_dataloaders=datamodule.train_dataloader(),
-        val_dataloaders=datamodule.val_dataloader()
-    )
-    trainer.test(
-        test_dataloaders=datamodule.test_dataloader()
-    )
+    if test_only:
+        trainer.test(
+            model=module,
+            test_dataloaders=datamodule.test_dataloader()
+        )
+    else:
+        trainer.fit(
+            model=module,
+            train_dataloaders=datamodule.train_dataloader(),
+            val_dataloaders=datamodule.val_dataloader()
+        )
+        trainer.test(
+            test_dataloaders=datamodule.test_dataloader()
+        )

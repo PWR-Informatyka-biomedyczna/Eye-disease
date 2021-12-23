@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-CSV_PATH = r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\pretrain_collected_data.csv'
+CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv'
 
 
 def test():

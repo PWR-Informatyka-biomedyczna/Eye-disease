@@ -131,7 +131,6 @@ class Xception(BaseModel):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-    @abc.abstractmethod
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         return self.model(x['input'])
 
