@@ -1,0 +1,79 @@
+program: experiments.sweep_experiment
+method: random
+project: ResNet18Optimizing
+entity: kn-bmi
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  optimizer:
+    value: 'adam'
+  
+  lr_scheduler:
+    values: [
+      ['multiplicative_lr', 0.99],
+      ['multiplicative_lr', 0.95],
+      ['multiplicative_lr', 0.90],
+      ['multiplicative_lr', 0.99],
+      ['multiplicative_lr', 0.95],
+      ['multiplicative_lr', 0.90],
+      ['cosine_lr', 20],
+      ['cosine_lr', 40],
+      ['cosine_lr', 60],
+      ['cosine_lr', 20],
+      ['cosine_lr', 40],
+      ['cosine_lr', 60],
+      ['cosine_warm_lr', 4, 1],
+      ['cosine_warm_lr', 6, 1],
+      ['cosine_warm_lr', 8, 1],
+      ['cosine_warm_lr', 4, 2],
+      ['cosine_warm_lr', 6, 2],
+      ['cosine_warm_lr', 8, 2],
+      ['None'],
+      ['None'],
+      ['None'],
+      ['None'],
+      ['None'],
+      ['None']
+    ]
+  
+  learning_rate:
+    values: [1, 1e-1, 1e-2, 1e-3, 1e-4]
+  
+  beta:
+    values: [0.99, 0.97, 0.95, 0.9]
+
+  weight_decay:
+    values: [1e-5, 1e-6, 1e-7, 0]
+
+  amsgrad:
+    values: [True, False]
+
+  batch_size:
+    values: [16, 32, 64]
+
+  weight_0:
+    distribution: normal
+    mu: 1
+    sigma: 0.1
+
+  weight_1:
+    distribution: normal
+    mu: 1.5
+    sigma: 0.2
+
+  weight_2:
+    distribution: normal
+    mu: 2.65
+    sigma: 0.28
+
+  weight_3:
+    distribution: normal
+    mu: 2
+    sigma: 0.21
+
+command:
+  - ${env}
+  - PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m
+  - ${program}
+  - ${args}
