@@ -7,28 +7,22 @@ metric:
   name: val_loss
 parameters:
   optimizer:
-    values: ['adam', 'adamw', 'radam', 'nadam', 'rmsprop', 'sgd']
+    values: ['adam', 'adamw', 'sgd', 'asgd']
   
-  alpha:
-    values: [0.999, 0.99, 0.97, 0.95, 0.9]
-
-  momentum:
-    values: [0.99, 0.97, 0.95, 0.9]
-  
-  centered:
-    values: [True, False]
-
-  dampening:
-    values: [0.1, 0.01, 0.001, 0.0001]
-  
-  nesterov:
-    values: [True, False]
-
   lr_scheduler:
-    values: ['cosine_lr', 'cosine_warm_lr', 'None']
+    values: ['multiplicative_lr', 'cosine_lr', 'cosine_warm_lr', 'None']
   
   lr_lambda:
     values: [0.99, 0.95, 0.9]
+
+  alpha_asgd:
+    values: [0.5, 0.75, 0.9]
+  
+  lambda_asgd:
+    values: [1e-4, 1e-5, 1e-6]
+  
+  t0_asgd:
+    values: [1e7, 1e6, 1e5]
 
   t_max:
     values: [10, 15, 20]
@@ -38,12 +32,18 @@ parameters:
   
   t_mul:
     values: [1, 2]
-  
-  momentum_decay:
-    values: [0.01, 0.04, 0.004, 0.001, 0.0001, 0.00001]
+
+  momentum:
+    values: [4e-3, 4e-4, 4e-5]
 
   learning_rate:
-    values: [1, 1e-1, 1e-2, 1e-3, 1e-4]
+    values: [1e-2, 1e-3, 1e-4, 3e-4, 3e-3, 3e-2]
+  
+  dampening:
+    values: [1e-5, 1e-6, 1e-7]
+  
+  nesterov:
+    values: [True, False]
 
   beta:
     values: [0.99, 0.97, 0.95, 0.9]
