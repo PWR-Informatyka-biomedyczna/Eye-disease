@@ -7,10 +7,25 @@ metric:
   name: val_loss
 parameters:
   optimizer:
-    values: ['adam', 'adamw', 'nadam', 'radam', 'rmsprop', 'sgd']
+    values: ['adam', 'adamw', 'radam', 'nadam', 'rmsprop', 'sgd']
   
+  alpha:
+    values: [0.999, 0.99, 0.97, 0.95, 0.9]
+
+  momentum:
+    values: [0.99, 0.97, 0.95, 0.9]
+  
+  centered:
+    values: [True, False]
+
+  dampening:
+    values: [0.1, 0.01, 0.001, 0.0001]
+  
+  nesterov:
+    values: [True, False]
+
   lr_scheduler:
-    values: ['multiplicative_lr', 'cosine_lr', 'cosine_warm_lr']
+    values: ['cosine_lr', 'cosine_warm_lr', 'None']
   
   lr_lambda:
     values: [0.99, 0.95, 0.9]
@@ -23,15 +38,18 @@ parameters:
   
   t_mul:
     values: [1, 2]
+  
+  momentum_decay:
+    values: [0.01, 0.04, 0.004, 0.001, 0.0001, 0.00001]
 
   learning_rate:
-    values: [1, 1e-1, 1e-2, 1e-3, 1e-4, 3e-4, 3e-3, 3e-2, 3e-1]
+    values: [1, 1e-1, 1e-2, 1e-3, 1e-4]
 
   beta:
     values: [0.99, 0.97, 0.95, 0.9]
 
   weight_decay:
-    values: [1e-4, 1e-5, 1e-6, 0]
+    values: [1e-5, 1e-6, 1e-7, 0]
 
   amsgrad:
     values: [True, False]
@@ -61,6 +79,10 @@ parameters:
 
 command:
   - ${env}
-  - PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m
+  - PL_TORCH_DISTRIBUTED_BACKEND=gloo
+  - poetry
+  - run
+  - python3
+  - -m
   - ${program}
   - ${args}

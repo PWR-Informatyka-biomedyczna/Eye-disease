@@ -19,7 +19,7 @@ def train_test(
         gpus: int,
         callbacks: List[Callback],
         logger: LightningLoggerBase,
-        optimizer: torch.optim.Optimizer = torch.optim.Adam,
+        optimizer: torch.optim.Optimizer = None,
         precision: int = 32,
         strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False),
         weights: torch.Tensor = None,

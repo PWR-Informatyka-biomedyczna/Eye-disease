@@ -1,0 +1,30 @@
+lr 0.01 0.01 True
+batch_size 32 32
+weight_0 1.1495162449905827 tensor(1.1495) tensor(True)
+weight_1 1.5604654338552353 tensor(1.5605) tensor(True)
+weight_2 2.3097849960928865 tensor(2.3098) tensor(True)
+weight_3 1.81542691974 tensor(1.8154) tensor(True)
+weights tensor([1.1495, 1.5605, 2.3098, 1.8154]) tensor([1.1495, 1.5605, 2.3098, 1.8154])
+optimizer sgd SGD (
+Parameter Group 0
+    dampening: 0
+    initial_lr: 0.01
+    lr: 0.01
+    momentum: 0.95
+    nesterov: True
+    weight_decay: 1e-05
+)
+beta 0.99
+weight_decay 1e-05
+amsgrad True
+lr_scheduler cosine_warm_lr <torch.optim.lr_scheduler.CosineAnnealingWarmRestarts object at 0x7fc0f732a460>
+lr_lambda 0.95
+t_max 20
+t_0 4
+t_mul 1
+momentum_decay 0.0004
+alpha 0.9
+momentum 0.95
+centered True
+dampening 0.001
+nesterov True

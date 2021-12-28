@@ -22,13 +22,13 @@ from methods import DenseNet, ResNext50, ResNext101
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
 
-
+# PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m experiments.base_experiment
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'ResNextTraining'
+PROJECT_NAME = 'ResNetTraining'
 NUM_CLASSES = 4
 LR = 1e-4
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -37,9 +37,9 @@ GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
 WEIGHTS = torch.Tensor([1, 2, 2.5, 1.5])
-TYPE = 'training' # pretraining, training, training-from-pretrained
-MODEL_PATH = None
-TEST_ONLY = False
+TYPE = 'test' # pretraining, training, training-from-pretrained
+MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/training/ResNet18Model/2021-12-16_16:22:11.605147/ResNet18Model.ckpt'
+TEST_ONLY = True
 DATE_NOW = str(datetime.datetime.now())
 
 models_list = [
@@ -47,13 +47,12 @@ models_list = [
         #EfficientNetB2(NUM_CLASSES),
         #Xception(NUM_CLASSES),
         #DenseNet(NUM_CLASSES),
-        ResNext50(NUM_CLASSES),
-        #ResNet18Model(NUM_CLASSES),
+        #ResNext50(NUM_CLASSES),
+        ResNet18Model(NUM_CLASSES),
         #ResNet50Model(NUM_CLASSES)
     ]
 
 
-# Przerobić na Classifier, train_test isinstance
 def load_model(model, mode: str = 'train'):
     classifier = Classifier(
                 model=model,

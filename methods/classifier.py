@@ -126,7 +126,7 @@ class Classifier(pl.LightningModule):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.model.parameters(), self.lr)
         if self.lr_scheduler is not None:
-            return self.optimizer, self.lr_scheduler
+            return [self.optimizer], [self.lr_scheduler]
         return self.optimizer
 
     def _calculate_score(self, y_pred: torch.Tensor, y_true: torch.Tensor, split: str, on_step: bool,

@@ -12,3 +12,4 @@ pretrain_collected_data.csv
 resized_collected_data.csv
 pretrained_nets/
 autoalbument-full/
+wandb/
