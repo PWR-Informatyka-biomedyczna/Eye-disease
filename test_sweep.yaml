@@ -1,4 +1,4 @@
-program: experiments.sweep_experiment
+program: test_sweep.py
 method: random
 project: ResNet18Optimizing
 entity: kn-bmi
@@ -81,6 +81,5 @@ command:
   - poetry
   - run
   - python3
-  - -m
   - ${program}
   - ${args}

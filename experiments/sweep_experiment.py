@@ -108,50 +108,77 @@ def init_optimizer(model, config, lr=1e-4):
     model = dummy_classifier.model
     
     optimizer = config.optimizer
-    beta = config.beta
-    weight_decay = config.weight_decay
-    amsgrad = config.amsgrad
-    momentum_decay = config.momentum_decay
-    alpha = config.alpha
-    momentum = config.momentum 
-    centered = config.centered
-    dampening = config.dampening
-    nesterov = config.nesterov
     if optimizer == 'adam':
+        beta = config.beta
+        weight_decay = config.weight_decay
+        amsgrad = config.amsgrad
         return torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
+    
     elif optimizer == 'adamw':
+        beta = config.beta
+        weight_decay = config.weight_decay
+        amsgrad = config.amsgrad    
         return torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
+    
     elif optimizer == 'adamax':
+        beta = config.beta
+        weight_decay = config.weight_decay
         return torch.optim.Adamax(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay)
+    
     elif optimizer == 'radam':
+        beta = config.beta
+        weight_decay = config.weight_decay
         return torch.optim.RAdam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay)
+    
     elif optimizer == 'nadam':
+        beta = config.beta
+        momentum_decay = config.momentum_decay
+        weight_decay = config.weight_decay
         return torch.optim.NAdam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, momentum_decay=momentum_decay)
+    
     elif optimizer == 'rmsprop':
+        weight_decay = config.weight_decay
+        alpha = config.alpha
+        momentum = config.momentum 
+        centered = config.centered
         return torch.optim.RMSprop(model.parameters(), lr=lr, alpha=alpha, momentum=momentum, weight_decay=weight_decay, centered=centered)
+    
     elif optimizer == 'sgd':
+        weight_decay = config.weight_decay
+        dampening = config.dampening
+        nesterov = config.nesterov
+        momentum = config.momentum
         if nesterov:
             return torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
                                momentum=momentum, dampening=0, nesterov=nesterov)
         else:
             return torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
                                momentum=momentum, dampening=dampening, nesterov=nesterov)
+    
+    elif optimizer == 'asgd':
+        alpha = config.alpha_asgd
+        lambda_ = config.lambda_asgd
+        t0 = config.t0_asgd
+        weight_decay = config.weight_decay
+        return torch.optim.ASGD(model.parameters(), lr=lr, lambd=lambda_, alpha=alpha, t0=t0, weight_decay=weight_decay)
+    
     return None
 
 
 def init_scheduler(optimizer, config):
-    scheduler = config.lr_scheduler
-    if scheduler == 'multiplicative_lr':
-        lr_lambda = lambda epoch: config.lr_lambda
+    scheduler_params = config.lr_scheduler
+    scheduler_params = scheduler_params.split('_')
+    if scheduler_params[0] == 'multiplicativelr':
+        lr_lambda = lambda epoch: float(scheduler_params[1])
         return torch.optim.lr_scheduler.MultiplicativeLR(optimizer=optimizer, lr_lambda=lr_lambda)
-    elif scheduler == 'cosine_lr':
-        t_max = config.t_max
+    elif scheduler_params[0] == 'cosinelr':
+        t_max = int(scheduler_params[1])
         return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=t_max)
-    elif scheduler == 'cosine_warm_lr':
-        t_0 = config.t_0
-        t_mul = config.t_mul
+    elif scheduler_params[0] == 'cosinewarmlr':
+        t_0 = int(scheduler_params[1])
+        t_mul = int(scheduler_params[2])
         return torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer=optimizer, T_0=t_0, T_mult=t_mul)
-    elif scheduler == 'None':
+    elif scheduler_params[0] == 'None':
         return None
     return None
 

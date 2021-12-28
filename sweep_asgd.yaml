@@ -11,30 +11,30 @@ parameters:
   
   lr_scheduler:
     values: [
-      ['multiplicative_lr', 0.99],
-      ['multiplicative_lr', 0.95],
-      ['multiplicative_lr', 0.90],
-      ['multiplicative_lr', 0.99],
-      ['multiplicative_lr', 0.95],
-      ['multiplicative_lr', 0.90],
-      ['cosine_lr', 20],
-      ['cosine_lr', 40],
-      ['cosine_lr', 60],
-      ['cosine_lr', 20],
-      ['cosine_lr', 40],
-      ['cosine_lr', 60],
-      ['cosine_warm_lr', 4, 1],
-      ['cosine_warm_lr', 6, 1],
-      ['cosine_warm_lr', 8, 1],
-      ['cosine_warm_lr', 4, 2],
-      ['cosine_warm_lr', 6, 2],
-      ['cosine_warm_lr', 8, 2],
-      ['None'],
-      ['None'],
-      ['None'],
-      ['None'],
-      ['None'],
-      ['None']
+      multiplicativelr_0.99,
+      multiplicativelr_0.95,
+      multiplicativelr_0.90,
+      multiplicativelr_0.99,
+      multiplicativelr_0.95,
+      multiplicativelr_0.90,
+      cosine_lr_20,
+      cosine_lr_40,
+      cosine_lr_60,
+      cosine_lr_20,
+      cosine_lr_40,
+      cosine_lr_60,
+      cosine_warm_lr_4_1,
+      cosine_warm_lr_6_1,
+      cosine_warm_lr_8_1,
+      cosine_warm_lr_4_2,
+      cosine_warm_lr_6_2,
+      cosine_warm_lr_8_2,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None
     ]
 
   alpha_asgd:
@@ -77,6 +77,10 @@ parameters:
 
 command:
   - ${env}
-  - PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m
+  - PL_TORCH_DISTRIBUTED_BACKEND=gloo
+  - poetry
+  - run
+  - python3
+  - -m
   - ${program}
   - ${args}
