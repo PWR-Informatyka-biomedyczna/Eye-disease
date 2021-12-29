@@ -247,7 +247,7 @@ def seed_all(seed: int) -> None:
 
 def main():
     seed_all(SEED)
-    weights = torch.Tensor([0.9, 1.1, 2.5, 1.6])
+    weights = torch.Tensor([1, 2])
     for optim in OPTIM:
         for lr in LR:
             for model in models_list:
