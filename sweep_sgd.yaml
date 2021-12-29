@@ -41,24 +41,16 @@ parameters:
     value: 64
 
   weight_0:
-    distribution: normal
-    mu: 1
-    sigma: 0.1
+    value: 0.9
 
   weight_1:
-    distribution: normal
-    mu: 1.5
-    sigma: 0.2
+    value: 1.3
 
   weight_2:
-    distribution: normal
-    mu: 2.65
-    sigma: 0.28
+    value: 2.7
 
   weight_3:
-    distribution: normal
-    mu: 2
-    sigma: 0.21
+    value: 2
 
 command:
   - ${env}
