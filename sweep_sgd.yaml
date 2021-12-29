@@ -11,15 +11,6 @@ parameters:
   
   lr_scheduler:
     values: [
-      multiplicativelr_0.99,
-      multiplicativelr_0.95,
-      multiplicativelr_0.90,
-      multiplicativelr_0.99,
-      multiplicativelr_0.95,
-      multiplicativelr_0.90,
-      cosinelr_20,
-      cosinelr_40,
-      cosinelr_60,
       cosinelr_20,
       cosinelr_40,
       cosinelr_60,
@@ -28,23 +19,17 @@ parameters:
       cosinewarmlr_8_1,
       cosinewarmlr_4_2,
       cosinewarmlr_6_2,
-      cosinewarmlr_8_2,
-      None,
-      None,
-      None,
-      None,
-      None,
-      None
+      cosinewarmlr_8_2
     ]
 
   momentum:
     values: [4e-3, 4e-4, 4e-5]
 
   learning_rate:
-    values: [1e-1, 1e-2, 1e-3, 1e-4]
+    values: [1e-1, 1e-2, 1e-3]
   
   dampening:
-    values: [1e-5, 1e-6, 1e-7]
+    values: [1e-7, 0]
   
   nesterov:
     values: [True, False]
@@ -53,7 +38,7 @@ parameters:
     values: [1e-6, 1e-7, 0]
 
   batch_size:
-    values: [32, 64]
+    value: 64
 
   weight_0:
     distribution: normal
