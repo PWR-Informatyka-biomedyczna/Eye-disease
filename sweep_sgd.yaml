@@ -11,22 +11,18 @@ parameters:
   
   lr_scheduler:
     values: [
-      cosinelr_20,
-      cosinelr_40,
-      cosinelr_60,
       cosinewarmlr_4_1,
       cosinewarmlr_6_1,
       cosinewarmlr_8_1,
       cosinewarmlr_4_2,
-      cosinewarmlr_6_2,
       cosinewarmlr_8_2
     ]
 
   momentum:
-    values: [4e-3, 4e-4, 4e-5]
+    values: [4e-3, 4e-4]
 
   learning_rate:
-    values: [1e-1, 1e-2, 1e-3]
+    value: 1e-2
   
   dampening:
     values: [1e-7, 0]
@@ -35,7 +31,7 @@ parameters:
     values: [True, False]
 
   weight_decay:
-    values: [1e-6, 1e-7, 0]
+    values: [1e-6, 1e-7]
 
   batch_size:
     value: 64
