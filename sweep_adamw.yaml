@@ -14,25 +14,20 @@ parameters:
       multiplicativelr_0.99,
       multiplicativelr_0.95,
       cosinelr_20,
-      cosinelr_40,
-      cosinelr_60,
-      cosinewarmlr_4_1,
       cosinewarmlr_6_1,
       cosinewarmlr_8_1,
-      cosinewarmlr_4_2,
       cosinewarmlr_6_2,
       cosinewarmlr_8_2,
-      None,
     ]
   
   learning_rate:
-    values: [1e-2, 1e-3, 1e-4]
+    values: [1e-3, 1e-4]
   
   beta:
-    values: [0.99, 0.97, 0.95, 0.9]
+    values: [0.97, 0.95, 0.9]
 
   weight_decay:
-    values: [1e-5, 1e-6, 1e-7, 0]
+    values: [1e-6, 1e-7, 0]
 
   amsgrad:
     values: [True, False]

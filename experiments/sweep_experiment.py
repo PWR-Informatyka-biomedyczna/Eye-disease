@@ -205,6 +205,9 @@ def init_argument_parser():
     parser.add_argument('--centered', type=bool)
     parser.add_argument('--dampening', type=float)
     parser.add_argument('--nesterov', type=bool)
+    parser.add_argument('--alpha_asgd', type=float)
+    parser.add_argument('--lambda_asgd', type=float)
+    parser.add_argument('--t0_asgd', type=int)
     return parser
 
 
