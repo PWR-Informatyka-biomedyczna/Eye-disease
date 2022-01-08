@@ -10,29 +10,19 @@ parameters:
     value: 'nadam'
   
   lr_scheduler:
-    values: [
-      multiplicativelr_0.99,
-      multiplicativelr_0.95,
-      cosinelr_15,
-      cosinelr_20,
-      cosinelr_25,
-      cosinewarmlr_4_2,
-      cosinewarmlr_6_2,
-      cosinewarmlr_8_2,
-      None,
-    ]
+    value: cosinelr_20
   
   learning_rate:
-    values: [1e-3, 1e-4]
+    value: 1e-4
   
   beta:
-    values: [0.99, 0.95, 0.9]
+    value: 0.94
 
   weight_decay:
-    values: [1e-6, 1e-7, 0]
+    values: [1e-4, 1e-5, 1e-6]
 
   momentum_decay:
-    values: [4e-3, 4e-4, 4e-5]
+    values: [1e-2, 1e-3, 4e-3, 4e-4]
 
   batch_size:
     value: 64

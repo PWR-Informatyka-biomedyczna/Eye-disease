@@ -18,6 +18,7 @@ from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods import ResNet18Model
 from methods import Classifier
+from methods import FocalLoss
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
@@ -26,7 +27,7 @@ from training import train_test
 SEED = 0
 PROJECT_NAME = 'ResNet18Optimizing'
 NUM_CLASSES = 4
-MAX_EPOCHS = 100
+MAX_EPOCHS = 200
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 10
@@ -245,6 +246,9 @@ def main():
         checkpoints_run_dir, model_type, input_size = create_log_path(model)
         Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
         
+        if isinstance(model, Classifier):
+            model.criterion = FocalLoss(gamma=2, alpha=None, size_average=True)
+            
         data_module = EyeDiseaseDataModule(
             csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
             train_split_name='train',
