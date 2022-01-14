@@ -21,17 +21,17 @@ from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1
 from methods import DenseNet, ResNext50, ResNext101, RegNetY3_2gf
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
-from dataset.resamplers import threshold_to_glaucoma_with_ros
+from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal
 
 # PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m experiments.base_experiment
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'ThreshToGlaucomaWithROSTraining'
+PROJECT_NAME = 'BinaryThreshTo20kEqual'
 #PROJECT_NAME = 'BinaryTraining'
-NUM_CLASSES = 4
+NUM_CLASSES = 2
 LR = [1e-4]
 OPTIM = ['nadam']
-BATCH_SIZE = 32
+BATCH_SIZE = 24
 MAX_EPOCHS = 200
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -39,12 +39,13 @@ PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 #RESAMPLER = threshold_to_glaucoma_with_ros
-RESAMPLER = threshold_to_glaucoma_with_ros
+RESAMPLER = binary_thresh_to_20k_equal
 TYPE = 'training' # pretraining, training, training-from-pretrained
 #MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/ResNet18Model/2021-12-15_15:59:16.045619/ResNet18Model.ckpt'
 MODEL_PATH = None
 TEST_ONLY = False
 PRETRAINING = False
+BINARY = True
 TRAIN_SPLIT_NAME = 'train'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
@@ -212,8 +213,8 @@ def create_log_path(model, suffix):
 
 def main():
     seed_all(SEED)
-    weights = torch.Tensor([1, 0.9, 1.5, 1.2])
-    #weights = torch.Tensor([1, 1.3])
+    #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
+    weights = torch.Tensor([1, 1.2])
     for optim in OPTIM:
         for lr in LR:
             for model in models_list:
@@ -230,7 +231,7 @@ def main():
                 Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
                 
                 data_module = EyeDiseaseDataModule(
-                    csv_path='/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv',
+                    csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
                     train_split_name=TRAIN_SPLIT_NAME,
                     val_split_name=VAL_SPLIT_NAME,
                     test_split_name=TEST_SPLIT_NAME,
@@ -244,7 +245,8 @@ def main():
                     num_workers=12,
                     shuffle_train=True,
                     resampler=RESAMPLER,
-                    pretraining=PRETRAINING
+                    pretraining=PRETRAINING,
+                    binary=BINARY
                 )
                 data_module.prepare_data()
 

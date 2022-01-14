@@ -15,12 +15,14 @@ class EyeDiseaseData(Dataset):
                  transforms: Compose,
                  image_path_name: str = 'path',
                  label_name: str = 'target',
-                 pretraining: bool = False):
+                 pretraining: bool = False,
+                 binary: bool = False):
         self.data = df
         self.transforms = transforms
         self.path_name = image_path_name
         self.label_name = label_name
         self.pretraining = pretraining
+        self.binary = binary
 
     def __len__(self) -> int:
         return self.data.__len__()
@@ -35,5 +37,9 @@ class EyeDiseaseData(Dataset):
         image = self._process_image(path)
         if self.pretraining:
             if label == 3:
+                label = 1
+                
+        if self.binary:
+            if label > 1:
                 label = 1
         return {'input': image, 'target': label}
