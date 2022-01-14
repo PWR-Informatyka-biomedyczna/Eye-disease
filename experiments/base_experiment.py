@@ -18,7 +18,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, Xception
-from methods import DenseNet, ResNext50, ResNext101, RegNetY3_2gf
+from methods import DenseNet, ResNext50, ResNext101, RegNetY3_2gf, VGG16, RegNetX3_2gf, RegNetX800MF, RegNetY800MF, RegNetY8gf
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
 from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal
@@ -29,9 +29,9 @@ SEED = 0
 PROJECT_NAME = 'BinaryThreshTo20kEqual'
 #PROJECT_NAME = 'BinaryTraining'
 NUM_CLASSES = 2
-LR = [1e-4]
-OPTIM = ['nadam']
-BATCH_SIZE = 24
+LR = [1e-3]
+OPTIM = ['sgd']
+BATCH_SIZE = 16
 MAX_EPOCHS = 200
 NORMALIZE = True
 MONITOR = 'val_loss'
