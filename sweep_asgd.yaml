@@ -1,0 +1,59 @@
+program: experiments.sweep_experiment
+method: random
+project: ResNet18Optimizing
+entity: kn-bmi
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  optimizer:
+    value: 'asgd'
+  
+  lr_scheduler:
+    values: [
+      multiplicativelr_0.99,
+      cosine_lr_15,
+      cosine_lr_20,
+      cosine_lr_25,
+      cosine_warm_lr_8_2
+    ]
+
+  alpha_asgd:
+    values: [0.5, 0.55, 0.6]
+  
+  lambda_asgd:
+    values: [1e-5, 1e-6]
+  
+  t0_asgd:
+    values: [1e6, 5e5, 7e5]
+
+  learning_rate:
+    values: [1e-2, 3e-2]
+  
+  weight_decay:
+    values: [1e-6, 1e-7, 0]
+
+  batch_size:
+    value: 64
+
+  weight_0:
+    value: 0.9
+
+  weight_1:
+    value: 1.3
+
+  weight_2:
+    value: 2.7
+
+  weight_3:
+    value: 2
+
+command:
+  - ${env}
+  - PL_TORCH_DISTRIBUTED_BACKEND=gloo
+  - poetry
+  - run
+  - python3
+  - -m
+  - ${program}
+  - ${args}

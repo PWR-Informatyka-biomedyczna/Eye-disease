@@ -1,7 +1,11 @@
+import time
+import hashlib
 import random
+import os
 import datetime
 import argparse
 from pathlib import Path
+import time
 
 import numpy as np
 import cv2
@@ -16,9 +20,9 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
-from methods import ResNet18Model
+from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, Xception
+from methods import DenseNet, ResNext50, ResNext101
 from methods import Classifier
-from methods import FocalLoss
 from settings import LOGS_DIR, CHECKPOINTS_DIR
 from training import train_test
 
@@ -27,10 +31,10 @@ from training import train_test
 SEED = 0
 PROJECT_NAME = 'ResNet18Optimizing'
 NUM_CLASSES = 4
-MAX_EPOCHS = 200
+MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
-PATIENCE = 10
+PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
@@ -40,7 +44,13 @@ TEST_ONLY = False
 DATE_NOW = str(datetime.datetime.now())
 
 models_list = [
-        ResNet18Model(NUM_CLASSES)
+        #EfficientNetB0(NUM_CLASSES),
+        #EfficientNetB2(NUM_CLASSES),
+        #Xception(NUM_CLASSES),
+        #DenseNet(NUM_CLASSES),
+        #ResNext50(NUM_CLASSES),
+        ResNet18Model(NUM_CLASSES),
+        #ResNet50Model(NUM_CLASSES)
     ]
 
 
@@ -66,15 +76,18 @@ def load_model(model, optimizer=None, lr_scheduler=None, mode: str = 'train', lr
         classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
                                         num_classes=NUM_CLASSES, lr=lr, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
         classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+        classifier.optimizer = optimizer
+        classifier.lr_scheduler = lr_scheduler
+        classifier.criterion.weight = weights
     elif mode == 'test':
         if out_features < NUM_CLASSES:
             model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
         classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
                                         num_classes=NUM_CLASSES, lr=lr, weights=torch.Tensor(1, 1, 1, 1), 
                                         optimizer=None, lr_scheduler=None)
-    classifier.optimizer = optimizer
-    classifier.lr_scheduler = lr_scheduler
-    classifier.criterion.weight = weights
+        classifier.optimizer = optimizer
+        classifier.lr_scheduler = lr_scheduler
+        classifier.criterion.weight = weights
     
     return classifier
 
@@ -206,27 +219,8 @@ def init_argument_parser():
     parser.add_argument('--centered', type=bool)
     parser.add_argument('--dampening', type=float)
     parser.add_argument('--nesterov', type=bool)
-    parser.add_argument('--alpha_asgd', type=float)
-    parser.add_argument('--lambda_asgd', type=float)
-    parser.add_argument('--t0_asgd', type=int)
     return parser
 
-
-def create_log_path(model):
-    mode = str(TYPE)
-    if isinstance(model, Classifier):
-        model_type = type(model.model).__name__
-        input_size = model.model.input_size
-        run_save_dir = mode + '/' + type(model.model).__name__  + '/' + str(DATE_NOW)
-    else:
-        model_type = type(model).__name__
-        input_size = model.input_size
-        run_save_dir = mode + '/' + type(model).__name__  + '/' + str(DATE_NOW)
-    
-    run_save_dir = run_save_dir.replace(" ", "_")
-    path = str(CHECKPOINTS_DIR)
-    checkpoints_run_dir = path + '/' + run_save_dir
-    return checkpoints_run_dir, model_type, input_size
 
 def main():
     seed_all(SEED)
@@ -243,78 +237,33 @@ def main():
             else:
                 model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='train', lr=lr, weights=weights, config=config)
         
-        checkpoints_run_dir, model_type, input_size = create_log_path(model)
-        Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
-        
-        if isinstance(model, Classifier):
-            model.criterion = FocalLoss(gamma=2, alpha=None, size_average=True)
-            
-        data_module = EyeDiseaseDataModule(
-            csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
-            train_split_name='train',
-            val_split_name='val',
-            test_split_name='test',
-            train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-            val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-            test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-            image_path_name='Path',
-            target_name='Label',
-            split_name='Split',
-            batch_size=batch_size,
-            num_workers=12,
-            shuffle_train=True,
-            resampler=RESAMPLER
-        )
-        data_module.prepare_data()
-
-        hparams = {
-            'dataset': type(data_module).__name__,
-            'model_type': model_type,
-            'lr': lr,
-            'batch_size': batch_size,
-            'optimizer': type(optimizer).__name__,
-            'resampler': RESAMPLER.__name__,
-            'num_classes': NUM_CLASSES,
-            #'run_id': run_save_dir
-        }
-
-        logger = WandbLogger(
-            save_dir=LOGS_DIR,
-            config=hparams,
-            project=PROJECT_NAME,
-            log_model=False,
-            entity=ENTITY_NAME
-        )
-
-        callbacks = [
-            EarlyStopping(
-                monitor=MONITOR,
-                patience=PATIENCE,
-                mode='min'
-            ),
-            ModelCheckpoint(
-                monitor=MONITOR,
-                dirpath=checkpoints_run_dir,
-                save_top_k=1,
-                filename=model_type,
-                save_weights_only=True
-            )
-        ]
-        train_test(
-            model=model,
-            datamodule=data_module,
-            max_epochs=MAX_EPOCHS,
-            num_classes=NUM_CLASSES,
-            gpus=GPUS,
-            lr=lr,
-            callbacks=callbacks,
-            logger=logger,
-            weights=weights,
-            optimizer=optimizer,
-            lr_scheduler=lr_scheduler,
-            test_only=TEST_ONLY
-        )
-        logger.experiment.finish()
+        mode = str(TYPE)
+        print('lr', config.learning_rate, lr, config.learning_rate == lr)
+        print('batch_size', config.batch_size, batch_size)
+        print('weight_0', config.weight_0, model.criterion.weight[0], config.weight_0 == model.criterion.weight[0])
+        print('weight_1', config.weight_1, model.criterion.weight[1], config.weight_1 == model.criterion.weight[1])
+        print('weight_2', config.weight_2, model.criterion.weight[2], config.weight_2 == model.criterion.weight[2])
+        print('weight_3', config.weight_3, model.criterion.weight[3], config.weight_3 == model.criterion.weight[3])
+        print('weights', weights, model.criterion.weight)
+        print('optimizer', config.optimizer, model.optimizer)
+        print(config.lr_scheduler)
+        print(type(config.lr_scheduler))
+        print(config.lr_scheduler.split('_'))
+        print(lr_scheduler)
+        # print('beta', config.beta)
+        # print('weight_decay', config.weight_decay)
+        # print('amsgrad', config.amsgrad)
+        # print('lr_scheduler', config.lr_scheduler, lr_scheduler)
+        # print('lr_lambda', config.lr_lambda)
+        # print('t_max', config.t_max)
+        # print('t_0', config.t_0)
+        # print('t_mul', config.t_mul)
+        # print('momentum_decay', config.momentum_decay)
+        # print('alpha', config.alpha)
+        # print('momentum', config.momentum)
+        # print('centered', config.centered)
+        # print('dampening', config.dampening)
+        # print('nesterov', config.nesterov)
 
 
 if __name__ == '__main__':

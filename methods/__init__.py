@@ -5,3 +5,4 @@ from methods.efficientnet import EfficientNetB0, EfficientNetB1, EfficientNetB2,
 from methods.xception import Xception
 from methods.resnext import ResNext50, ResNext101
 from methods.densenet import DenseNet
+from methods.loss_functions import FocalLoss

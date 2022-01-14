@@ -1,0 +1,85 @@
+program: test_sweep.py
+method: random
+project: ResNet18Optimizing
+entity: kn-bmi
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  optimizer:
+    value: 'sgd'
+  
+  lr_scheduler:
+    values: [
+      multiplicativelr_0.99,
+      multiplicativelr_0.95,
+      multiplicativelr_0.90,
+      multiplicativelr_0.99,
+      multiplicativelr_0.95,
+      multiplicativelr_0.90,
+      cosinelr_20,
+      cosinelr_40,
+      cosinelr_60,
+      cosinelr_20,
+      cosinelr_40,
+      cosinelr_60,
+      cosinewarmlr_4_1,
+      cosinewarmlr_6_1,
+      cosinewarmlr_8_1,
+      cosinewarmlr_4_2,
+      cosinewarmlr_6_2,
+      cosinewarmlr_8_2,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None
+    ]
+
+  momentum:
+    values: [4e-3, 4e-4, 4e-5]
+
+  learning_rate:
+    values: [1e-1, 1e-2, 1e-3, 1e-4]
+  
+  dampening:
+    values: [1e-5, 1e-6, 1e-7]
+  
+  nesterov:
+    values: [True, False]
+
+  weight_decay:
+    values: [1e-6, 1e-7, 0]
+
+  batch_size:
+    values: [32, 64]
+
+  weight_0:
+    distribution: normal
+    mu: 1
+    sigma: 0.1
+
+  weight_1:
+    distribution: normal
+    mu: 1.5
+    sigma: 0.2
+
+  weight_2:
+    distribution: normal
+    mu: 2.65
+    sigma: 0.28
+
+  weight_3:
+    distribution: normal
+    mu: 2
+    sigma: 0.21
+
+command:
+  - ${env}
+  - PL_TORCH_DISTRIBUTED_BACKEND=gloo
+  - poetry
+  - run
+  - python3
+  - ${program}
+  - ${args}

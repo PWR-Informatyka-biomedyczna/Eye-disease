@@ -8,3 +8,8 @@ checkpoints/*
 test.py
 augment.py
 .ipynb_checkpoints
+pretrain_collected_data.csv
+resized_collected_data.csv
+pretrained_nets/
+autoalbument-full/
+wandb/

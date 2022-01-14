@@ -8,6 +8,7 @@ from torchmetrics.functional import accuracy, f1
 from utils.metrics import f1_score, sensitivity, specificity, roc_auc
 
 from methods.base_model import BaseModel
+from methods.loss_functions import FocalLoss
 
 
 class Classifier(pl.LightningModule):
@@ -17,7 +18,9 @@ class Classifier(pl.LightningModule):
                  num_classes: int,
                  lr: float,
                  optimizer: torch.optim.Optimizer = torch.optim.Adam,
-                 weights: torch.Tensor = None
+                 weights: torch.Tensor = None,
+                 lr_scheduler: torch.optim.lr_scheduler = None,
+                 loss = None
                  ):
         """
         Base class for classifying task
@@ -33,6 +36,7 @@ class Classifier(pl.LightningModule):
         super(Classifier, self).__init__()
         # optimizer config
         self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
         self.lr = lr
         # model config
         self.model = model
@@ -60,8 +64,12 @@ class Classifier(pl.LightningModule):
                 self.metrics[key][f'f1_class_{cls}'] = f1_fun
                 self.metrics[key][f'sensitivity_class_{cls}'] = sens
                 self.metrics[key][f'specificity_class_{cls}'] = spec
-        self.criterion = nn.CrossEntropyLoss(weight=weights)
-
+        #self.criterion = loss
+        if loss == None:
+            self.criterion = nn.CrossEntropyLoss(weight=weights)
+        else:
+            self.criterion = loss
+        
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
         Return forward of model
@@ -122,7 +130,9 @@ class Classifier(pl.LightningModule):
         :return: torch optimizer
         """
         if self.optimizer is None:
-            return torch.optim.Adam(self.model.parameters(), self.lr)
+            self.optimizer = torch.optim.Adam(self.model.parameters(), self.lr)
+        if self.lr_scheduler is not None:
+            return [self.optimizer], [self.lr_scheduler]
         return self.optimizer
 
     def _calculate_score(self, y_pred: torch.Tensor, y_true: torch.Tensor, split: str, on_step: bool,
