@@ -26,24 +26,24 @@ from training import train_test
 # PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m experiments.base_experiment
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'EfficientNetB4Pretraining'
-NUM_CLASSES = 2
+PROJECT_NAME = 'EfficientNetB4Training'
+NUM_CLASSES = 4
 LR = [1e-4, 1e-3, 1e-2]
 OPTIM = ['adamw', 'sgd']
 BATCH_SIZE = 64
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
-PATIENCE = 5
+PATIENCE = 10
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = resamplers.identity_resampler
-TYPE = 'pretraining' # pretraining, training, training-from-pretrained
+TYPE = 'training-from-pretrained' # pretraining, training, training-from-pretrained
 MODEL_PATH = None
 TEST_ONLY = False
-TRAIN_SPLIT_NAME = 'pretrain'
-VAL_SPLIT_NAME = 'preval'
-TEST_SPLIT_NAME = 'pretest'
+TRAIN_SPLIT_NAME = 'train'
+VAL_SPLIT_NAME = 'val'
+TEST_SPLIT_NAME = 'test'
 
 models_list = [
         #EfficientNetB0(NUM_CLASSES),
@@ -247,7 +247,7 @@ def seed_all(seed: int) -> None:
 
 def main():
     seed_all(SEED)
-    weights = torch.Tensor([1, 2])
+    weights = torch.Tensor([0.9, 1.3, 2.7, 2])
     for optim in OPTIM:
         for lr in LR:
             for model in models_list:
