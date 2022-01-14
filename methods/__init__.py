@@ -6,3 +6,4 @@ from methods.xception import Xception
 from methods.resnext import ResNext50, ResNext101
 from methods.densenet import DenseNet
 from methods.loss_functions import FocalLoss
+from methods.regnet import RegNetY3_2gf

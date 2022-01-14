@@ -18,29 +18,39 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, Xception
-from methods import DenseNet, ResNext50, ResNext101
+from methods import DenseNet, ResNext50, ResNext101, RegNetY3_2gf
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
+from dataset.resamplers import threshold_to_glaucoma_with_ros
 
 # PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m experiments.base_experiment
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'ResNet18Optimizing'
+PROJECT_NAME = 'ThreshToGlaucomaWithROSTraining'
+#PROJECT_NAME = 'BinaryTraining'
 NUM_CLASSES = 4
-MAX_EPOCHS = 100
+LR = [1e-4]
+OPTIM = ['nadam']
+BATCH_SIZE = 32
+MAX_EPOCHS = 200
 NORMALIZE = True
 MONITOR = 'val_loss'
-PATIENCE = 10
+PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
-RESAMPLER = resamplers.identity_resampler
-TYPE = 'training-from-pretrained' # pretraining, training, training-from-pretrained
-MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/ResNet18Model/2021-12-15_15:59:16.045619/ResNet18Model.ckpt'
+#RESAMPLER = threshold_to_glaucoma_with_ros
+RESAMPLER = threshold_to_glaucoma_with_ros
+TYPE = 'training' # pretraining, training, training-from-pretrained
+#MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/ResNet18Model/2021-12-15_15:59:16.045619/ResNet18Model.ckpt'
+MODEL_PATH = None
 TEST_ONLY = False
-DATE_NOW = str(datetime.datetime.now())
+PRETRAINING = False
+TRAIN_SPLIT_NAME = 'train'
+VAL_SPLIT_NAME = 'val'
+TEST_SPLIT_NAME = 'test'
 
 models_list = [
-        ResNet18Model(NUM_CLASSES)
+        RegNetY3_2gf(NUM_CLASSES)
     ]
 
 
@@ -79,91 +89,88 @@ def load_model(model, optimizer=None, lr_scheduler=None, mode: str = 'train', lr
     return classifier
 
 
-def init_const_values(config):
-    lr = config.learning_rate
-    batch_size = config.batch_size
-    weight_0 = config.weight_0
-    weight_1 = config.weight_1
-    weight_2 = config.weight_2
-    weight_3 = config.weight_3
-    weights = torch.Tensor([weight_0, weight_1, weight_2, weight_3])
-    return lr, batch_size, weights
-
-
 def init_optimizer(model, config, lr=1e-4):
-    classifier = Classifier(
-                model=model,
-                num_classes=NUM_CLASSES,
-                lr=lr,
-                weights=torch.Tensor([1, 1]),
-                optimizer=None,
-                lr_scheduler=None
-                )
-    in_features = model.get_last_layer().in_features
-    out_features = model.get_last_layer().out_features
-    if out_features > 2:
-            model.set_last_layer(torch.nn.Linear(in_features, 2))
-    dummy_classifier = classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
-                                        num_classes=NUM_CLASSES, lr=1e-4, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
-    dummy_classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
-    model = dummy_classifier.model
-    if config is not None:
-        optimizer = config.optimizer
-        if optimizer == 'adam':
-            beta = config.beta
-            weight_decay = config.weight_decay
-            amsgrad = config.amsgrad
-            return torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
-        
-        elif optimizer == 'adamw':
-            beta = config.beta
-            weight_decay = config.weight_decay
-            amsgrad = config.amsgrad    
-            return torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
-        
-        elif optimizer == 'adamax':
-            beta = config.beta
-            weight_decay = config.weight_decay
-            return torch.optim.Adamax(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay)
-        
-        elif optimizer == 'radam':
-            beta = config.beta
-            weight_decay = config.weight_decay
-            return torch.optim.RAdam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay)
-        
-        elif optimizer == 'nadam':
-            beta = config.beta
-            momentum_decay = config.momentum_decay
-            weight_decay = config.weight_decay
-            return torch.optim.NAdam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, momentum_decay=momentum_decay)
-        
-        elif optimizer == 'rmsprop':
-            weight_decay = config.weight_decay
-            alpha = config.alpha
-            momentum = config.momentum 
-            centered = config.centered
-            return torch.optim.RMSprop(model.parameters(), lr=lr, alpha=alpha, momentum=momentum, weight_decay=weight_decay, centered=centered)
-        
-        elif optimizer == 'sgd':
-            weight_decay = config.weight_decay
-            dampening = config.dampening
-            nesterov = config.nesterov
-            momentum = config.momentum
-            if nesterov:
-                return torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
-                                momentum=momentum, dampening=0, nesterov=nesterov)
-            else:
-                return torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
-                                momentum=momentum, dampening=dampening, nesterov=nesterov)
-        
-        elif optimizer == 'asgd':
-            alpha = config.alpha_asgd
-            lambda_ = config.lambda_asgd
-            t0 = config.t0_asgd
-            weight_decay = config.weight_decay
-            return torch.optim.ASGD(model.parameters(), lr=lr, lambd=lambda_, alpha=alpha, t0=t0, weight_decay=weight_decay)
-    else:
-        return torch.optim.SGD(model.parameters(), lr=lr, weight_decay=1e-7, momentum=4e-4, dampening=0, nesterov=False)
+    if MODEL_PATH is not None:
+        classifier = Classifier(
+                    model=model,
+                    num_classes=NUM_CLASSES,
+                    lr=lr,
+                    weights=torch.Tensor([1, 1]),
+                    optimizer=None,
+                    lr_scheduler=None
+                    )
+        in_features = model.get_last_layer().in_features
+        out_features = model.get_last_layer().out_features
+        if out_features > 2:
+                model.set_last_layer(torch.nn.Linear(in_features, 2))
+        dummy_classifier = classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
+                                            num_classes=NUM_CLASSES, lr=1e-4, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
+        dummy_classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+        model = dummy_classifier.model
+
+    if config == 'sgd':
+        return torch.optim.SGD(model.parameters(), lr=lr, momentum=4e-3, dampening=0, nesterov=True, weight_decay=1e-6)
+    if config == 'adamw':
+        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-7, amsgrad=True)
+    if config == 'nadam':
+        return torch.optim.NAdam(model.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=1e-5, 
+                                 momentum_decay=4e-3)
+
+    optimizer = config.optimizer
+    if optimizer == 'adam':
+        beta = config.beta
+        weight_decay = config.weight_decay
+        amsgrad = config.amsgrad
+        return torch.optim.Adam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
+    
+    elif optimizer == 'adamw':
+        beta = config.beta
+        weight_decay = config.weight_decay
+        amsgrad = config.amsgrad    
+        return torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, amsgrad=amsgrad)
+    
+    elif optimizer == 'adamax':
+        beta = config.beta
+        weight_decay = config.weight_decay
+        return torch.optim.Adamax(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay)
+    
+    elif optimizer == 'radam':
+        beta = config.beta
+        weight_decay = config.weight_decay
+        return torch.optim.RAdam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay)
+    
+    elif optimizer == 'nadam':
+        beta = config.beta
+        momentum_decay = config.momentum_decay
+        weight_decay = config.weight_decay
+        return torch.optim.NAdam(model.parameters(), lr=lr, betas=(0.9, beta), weight_decay=weight_decay, momentum_decay=momentum_decay)
+    
+    elif optimizer == 'rmsprop':
+        weight_decay = config.weight_decay
+        alpha = config.alpha
+        momentum = config.momentum 
+        centered = config.centered
+        return torch.optim.RMSprop(model.parameters(), lr=lr, alpha=alpha, momentum=momentum, weight_decay=weight_decay, centered=centered)
+    
+    elif optimizer == 'sgd':
+        weight_decay = config.weight_decay
+        dampening = config.dampening
+        nesterov = config.nesterov
+        momentum = config.momentum
+        if nesterov:
+            return torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
+                               momentum=momentum, dampening=0, nesterov=nesterov)
+        else:
+            return torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
+                               momentum=momentum, dampening=dampening, nesterov=nesterov)
+    
+    elif optimizer == 'asgd':
+        alpha = config.alpha_asgd
+        lambda_ = config.lambda_asgd
+        t0 = config.t0_asgd
+        weight_decay = config.weight_decay
+        return torch.optim.ASGD(model.parameters(), lr=lr, lambd=lambda_, alpha=alpha, t0=t0, weight_decay=weight_decay)
+    
     return None
 
 
@@ -186,16 +193,16 @@ def init_scheduler(optimizer, config):
     return None
 
 
-def create_log_path(model):
-    mode = str(TYPE)
+def create_log_path(model, suffix):
+    mode = TYPE
     if isinstance(model, Classifier):
         model_type = type(model.model).__name__
         input_size = model.model.input_size
-        run_save_dir = mode + '/' + type(model.model).__name__  + '/' + str(DATE_NOW)
+        run_save_dir = mode + '/' + type(model.model).__name__  + '/' + suffix
     else:
         model_type = type(model).__name__
         input_size = model.input_size
-        run_save_dir = mode + '/' + type(model).__name__  + '/' + str(DATE_NOW)
+        run_save_dir = mode + '/' + type(model).__name__  + '/' + suffix
     
     run_save_dir = run_save_dir.replace(" ", "_")
     path = str(CHECKPOINTS_DIR)
@@ -205,86 +212,90 @@ def create_log_path(model):
 
 def main():
     seed_all(SEED)
-    lr, batch_size, weights = 1e-1, 64, torch.Tensor([0.9, 1.3, 2.7, 2])
-    
-    for model in models_list:
-        optimizer = init_optimizer(model, None, lr=lr)
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer=optimizer, T_0=8, T_mult=1)
-        if MODEL_PATH is not None:
-            if TEST_ONLY:
-                model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='test', lr=lr, weights=weights)
-            else:
-                model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='train', lr=lr, weights=weights)
-        
-        checkpoints_run_dir, model_type, input_size = create_log_path(model)
-        Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
-        
-        data_module = EyeDiseaseDataModule(
-            csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
-            train_split_name='train',
-            val_split_name='val',
-            test_split_name='test',
-            train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-            val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-            test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-            image_path_name='Path',
-            target_name='Label',
-            split_name='Split',
-            batch_size=batch_size,
-            num_workers=12,
-            shuffle_train=True,
-            resampler=RESAMPLER
-        )
-        data_module.prepare_data()
+    weights = torch.Tensor([1, 0.9, 1.5, 1.2])
+    #weights = torch.Tensor([1, 1.3])
+    for optim in OPTIM:
+        for lr in LR:
+            for model in models_list:
+                suffix = str(lr) + '_' + optim
+                optimizer = init_optimizer(model, optim, lr=lr)
+                lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+                if MODEL_PATH is not None:
+                    if TEST_ONLY:
+                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='test', lr=lr, weights=weights, config=None)
+                    else:
+                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='train', lr=lr, weights=weights, config=None)
+                
+                checkpoints_run_dir, model_type, input_size = create_log_path(model, suffix)
+                Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
+                
+                data_module = EyeDiseaseDataModule(
+                    csv_path='/media/data/adam_chlopowiec/eye_image_classification/collected_data_splits.csv',
+                    train_split_name=TRAIN_SPLIT_NAME,
+                    val_split_name=VAL_SPLIT_NAME,
+                    test_split_name=TEST_SPLIT_NAME,
+                    train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                    val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                    test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                    image_path_name='Path',
+                    target_name='Label',
+                    split_name='Split',
+                    batch_size=BATCH_SIZE,
+                    num_workers=12,
+                    shuffle_train=True,
+                    resampler=RESAMPLER,
+                    pretraining=PRETRAINING
+                )
+                data_module.prepare_data()
 
-        hparams = {
-            'dataset': type(data_module).__name__,
-            'model_type': model_type,
-            'lr': lr,
-            'batch_size': batch_size,
-            'optimizer': type(optimizer).__name__,
-            'resampler': RESAMPLER.__name__,
-            'num_classes': NUM_CLASSES,
-            #'run_id': run_save_dir
-        }
+                hparams = {
+                    'dataset': type(data_module).__name__,
+                    'model_type': model_type,
+                    'lr': lr,
+                    'batch_size': BATCH_SIZE,
+                    'optimizer': type(optimizer).__name__,
+                    'resampler': RESAMPLER.__name__,
+                    'num_classes': NUM_CLASSES,
+                    #'run_id': run_save_dir
+                }
 
-        logger = WandbLogger(
-            save_dir=LOGS_DIR,
-            config=hparams,
-            project=PROJECT_NAME,
-            log_model=False,
-            entity=ENTITY_NAME
-        )
+                logger = WandbLogger(
+                    save_dir=LOGS_DIR,
+                    config=hparams,
+                    project=PROJECT_NAME,
+                    log_model=False,
+                    entity=ENTITY_NAME
+                )
 
-        callbacks = [
-            EarlyStopping(
-                monitor=MONITOR,
-                patience=PATIENCE,
-                mode='min'
-            ),
-            ModelCheckpoint(
-                monitor=MONITOR,
-                dirpath=checkpoints_run_dir,
-                save_top_k=1,
-                filename=model_type,
-                save_weights_only=True
-            )
-        ]
-        train_test(
-            model=model,
-            datamodule=data_module,
-            max_epochs=MAX_EPOCHS,
-            num_classes=NUM_CLASSES,
-            gpus=GPUS,
-            lr=lr,
-            callbacks=callbacks,
-            logger=logger,
-            weights=weights,
-            optimizer=optimizer,
-            lr_scheduler=lr_scheduler,
-            test_only=TEST_ONLY
-        )
-        logger.experiment.finish()
+                callbacks = [
+                    EarlyStopping(
+                        monitor=MONITOR,
+                        patience=PATIENCE,
+                        mode='min'
+                    ),
+                    ModelCheckpoint(
+                        monitor=MONITOR,
+                        dirpath=checkpoints_run_dir,
+                        save_top_k=1,
+                        filename=model_type,
+                        save_weights_only=True
+                    )
+                ]
+                train_test(
+                    model=model,
+                    datamodule=data_module,
+                    max_epochs=MAX_EPOCHS,
+                    num_classes=NUM_CLASSES,
+                    gpus=GPUS,
+                    lr=lr,
+                    callbacks=callbacks,
+                    logger=logger,
+                    weights=weights,
+                    optimizer=optimizer,
+                    lr_scheduler=lr_scheduler,
+                    test_only=TEST_ONLY
+                )
+                logger.experiment.finish()
 
 
 if __name__ == '__main__':
