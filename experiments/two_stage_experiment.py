@@ -18,28 +18,28 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, Xception
-from methods import DenseNet, ResNext50, ResNext101, RegNetY3_2gf
+from methods import DenseNet, ResNext50, ResNext101, RegNetY3_2gf, RegNetX3_2gf
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
-from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal
+from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal, identity_resampler
 
 # PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m experiments.base_experiment
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'BinaryThreshTo20kEqual'
+PROJECT_NAME = 'TwoStageExperiment'
 #PROJECT_NAME = 'BinaryTraining'
 NUM_CLASSES = 2
-LR = [1e-4]
+LR = [1e-4, 3e-4]
 OPTIM = ['nadam']
 BATCH_SIZE = 24
-MAX_EPOCHS = 200
+MAX_EPOCHS = 2
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 #RESAMPLER = threshold_to_glaucoma_with_ros
-RESAMPLER = binary_thresh_to_20k_equal
+RESAMPLER = identity_resampler
 TYPE = 'training' # pretraining, training, training-from-pretrained
 #MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/ResNet18Model/2021-12-15_15:59:16.045619/ResNet18Model.ckpt'
 MODEL_PATH = None
@@ -52,6 +52,7 @@ TEST_SPLIT_NAME = 'test'
 
 models_list = [
         RegNetY3_2gf(NUM_CLASSES)
+        #RegNetX3_2gf(NUM_CLASSES)
     ]
 
 
@@ -214,11 +215,11 @@ def create_log_path(model, suffix):
 def main():
     seed_all(SEED)
     #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
-    weights = torch.Tensor([1, 1.2])
+    weights = torch.Tensor([1, 1.5])
     for optim in OPTIM:
         for lr in LR:
             for model in models_list:
-                suffix = str(lr) + '_' + optim
+                suffix = str(lr) + '_' + optim + '_' + PROJECT_NAME
                 optimizer = init_optimizer(model, optim, lr=lr)
                 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
                 if MODEL_PATH is not None:
@@ -235,7 +236,7 @@ def main():
                     train_split_name=TRAIN_SPLIT_NAME,
                     val_split_name=VAL_SPLIT_NAME,
                     test_split_name=TEST_SPLIT_NAME,
-                    train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                    train_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
                     val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
                     test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
                     image_path_name='Path',
@@ -249,7 +250,7 @@ def main():
                     binary=BINARY
                 )
                 data_module.prepare_data()
-
+                
                 hparams = {
                     'dataset': type(data_module).__name__,
                     'model_type': model_type,
@@ -297,13 +298,15 @@ def main():
                     lr_scheduler=lr_scheduler,
                     test_only=TEST_ONLY
                 )
-
+                logger.experiment.finish()        
+                
+                
                 data_module = EyeDiseaseDataModule(
                     csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
                     train_split_name=TRAIN_SPLIT_NAME,
                     val_split_name=VAL_SPLIT_NAME,
                     test_split_name=TEST_SPLIT_NAME,
-                    train_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                    train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
                     val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
                     test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
                     image_path_name='Path',
@@ -318,6 +321,13 @@ def main():
                 )
                 data_module.prepare_data()
 
+                logger = WandbLogger(
+                    save_dir=LOGS_DIR,
+                    config=hparams,
+                    project=PROJECT_NAME,
+                    log_model=False,
+                    entity=ENTITY_NAME
+                )
                 callbacks = [
                     EarlyStopping(
                         monitor=MONITOR,

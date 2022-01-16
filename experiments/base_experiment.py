@@ -21,17 +21,16 @@ from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1
 from methods import DenseNet, ResNext50, ResNext101, RegNetY3_2gf, VGG16, RegNetX3_2gf, RegNetX800MF, RegNetY800MF, RegNetY8gf
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
-from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal
+from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal, identity_resampler
 
 # PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m experiments.base_experiment
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'BinaryThreshTo20kEqual'
-#PROJECT_NAME = 'BinaryTraining'
+PROJECT_NAME = 'BinaryTraining'
 NUM_CLASSES = 2
-LR = [1e-3]
-OPTIM = ['sgd']
-BATCH_SIZE = 16
+LR = [1e-4]
+OPTIM = ['nadam']
+BATCH_SIZE = 24
 MAX_EPOCHS = 200
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -39,7 +38,7 @@ PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 #RESAMPLER = threshold_to_glaucoma_with_ros
-RESAMPLER = binary_thresh_to_20k_equal
+RESAMPLER = identity_resampler
 TYPE = 'training' # pretraining, training, training-from-pretrained
 #MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/ResNet18Model/2021-12-15_15:59:16.045619/ResNet18Model.ckpt'
 MODEL_PATH = None
@@ -214,7 +213,7 @@ def create_log_path(model, suffix):
 def main():
     seed_all(SEED)
     #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
-    weights = torch.Tensor([1, 1.2])
+    weights = torch.Tensor([1, 2])
     for optim in OPTIM:
         for lr in LR:
             for model in models_list:
@@ -276,7 +275,7 @@ def main():
                         mode='min'
                     ),
                     ModelCheckpoint(
-                        monitor=MONITOR,
+                        monitor="val_sensitivity_class_1",
                         dirpath=checkpoints_run_dir,
                         save_top_k=1,
                         filename=model_type,
