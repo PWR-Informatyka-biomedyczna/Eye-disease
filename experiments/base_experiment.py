@@ -45,6 +45,7 @@ MODEL_PATH = None
 TEST_ONLY = False
 PRETRAINING = False
 BINARY = True
+STAGE_TWO = True
 TRAIN_SPLIT_NAME = 'train'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'

@@ -46,6 +46,7 @@ MODEL_PATH = None
 TEST_ONLY = False
 PRETRAINING = False
 BINARY = True
+STAGE_TWO = True
 TRAIN_SPLIT_NAME = 'train'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
@@ -215,7 +216,7 @@ def create_log_path(model, suffix):
 def main():
     seed_all(SEED)
     #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
-    weights = torch.Tensor([1, 1.5])
+    weights = torch.Tensor([1, 2])
     for optim in OPTIM:
         for lr in LR:
             for model in models_list:
@@ -231,24 +232,44 @@ def main():
                 checkpoints_run_dir, model_type, input_size = create_log_path(model, suffix)
                 Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
                 
-                data_module = EyeDiseaseDataModule(
-                    csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
-                    train_split_name=TRAIN_SPLIT_NAME,
-                    val_split_name=VAL_SPLIT_NAME,
-                    test_split_name=TEST_SPLIT_NAME,
-                    train_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    image_path_name='Path',
-                    target_name='Label',
-                    split_name='Split',
-                    batch_size=BATCH_SIZE,
-                    num_workers=12,
-                    shuffle_train=True,
-                    resampler=RESAMPLER,
-                    pretraining=PRETRAINING,
-                    binary=BINARY
-                )
+                if STAGE_TWO:
+                    data_module = EyeDiseaseDataModule(
+                        csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
+                        train_split_name=TRAIN_SPLIT_NAME,
+                        val_split_name=VAL_SPLIT_NAME,
+                        test_split_name=TEST_SPLIT_NAME,
+                        train_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                        val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                        test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                        image_path_name='Path',
+                        target_name='Label',
+                        split_name='Split',
+                        batch_size=BATCH_SIZE,
+                        num_workers=12,
+                        shuffle_train=True,
+                        resampler=RESAMPLER,
+                        pretraining=PRETRAINING,
+                        binary=BINARY
+                    )
+                else:
+                    data_module = EyeDiseaseDataModule(
+                        csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
+                        train_split_name=TRAIN_SPLIT_NAME,
+                        val_split_name=VAL_SPLIT_NAME,
+                        test_split_name=TEST_SPLIT_NAME,
+                        train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                        val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                        test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+                        image_path_name='Path',
+                        target_name='Label',
+                        split_name='Split',
+                        batch_size=BATCH_SIZE,
+                        num_workers=12,
+                        shuffle_train=True,
+                        resampler=RESAMPLER,
+                        pretraining=PRETRAINING,
+                        binary=BINARY
+                    )
                 data_module.prepare_data()
                 
                 hparams = {
@@ -284,65 +305,6 @@ def main():
                         save_weights_only=True
                     )
                 ]
-                train_test(
-                    model=model,
-                    datamodule=data_module,
-                    max_epochs=MAX_EPOCHS,
-                    num_classes=NUM_CLASSES,
-                    gpus=GPUS,
-                    lr=lr,
-                    callbacks=callbacks,
-                    logger=logger,
-                    weights=weights,
-                    optimizer=optimizer,
-                    lr_scheduler=lr_scheduler,
-                    test_only=TEST_ONLY
-                )
-                logger.experiment.finish()        
-                
-                
-                data_module = EyeDiseaseDataModule(
-                    csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
-                    train_split_name=TRAIN_SPLIT_NAME,
-                    val_split_name=VAL_SPLIT_NAME,
-                    test_split_name=TEST_SPLIT_NAME,
-                    train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    image_path_name='Path',
-                    target_name='Label',
-                    split_name='Split',
-                    batch_size=BATCH_SIZE,
-                    num_workers=12,
-                    shuffle_train=True,
-                    resampler=RESAMPLER,
-                    pretraining=PRETRAINING,
-                    binary=BINARY
-                )
-                data_module.prepare_data()
-
-                logger = WandbLogger(
-                    save_dir=LOGS_DIR,
-                    config=hparams,
-                    project=PROJECT_NAME,
-                    log_model=False,
-                    entity=ENTITY_NAME
-                )
-                callbacks = [
-                    EarlyStopping(
-                        monitor=MONITOR,
-                        patience=PATIENCE,
-                        mode='min'
-                    ),
-                    ModelCheckpoint(
-                        monitor=MONITOR,
-                        dirpath=checkpoints_run_dir,
-                        save_top_k=1,
-                        filename=model_type,
-                        save_weights_only=True
-                    )
-                ]
-                
                 train_test(
                     model=model,
                     datamodule=data_module,
