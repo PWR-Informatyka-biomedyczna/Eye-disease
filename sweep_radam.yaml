@@ -26,7 +26,7 @@ parameters:
     values: [0.99, 0.95, 0.9]
 
   weight_decay:
-    values: [1e-7, 0]
+    values: [1e-6, 1e-7, 0]
 
   batch_size:
     value: 64

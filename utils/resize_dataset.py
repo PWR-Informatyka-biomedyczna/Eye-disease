@@ -17,7 +17,7 @@ def make_dirs(paths):
 def change_dirs(paths):
     new_paths = []
     for path in paths:
-        new_path = path.replace("eye_image_classification/data_resized", "eye_image_classification/data_resized_224")
+        new_path = path.replace("/home/adam_chlopowiec/data/eye_image_classification/data_resized", "../input/datasetresized/data_resized")
         new_paths.append(new_path)
     return new_paths
 
@@ -28,7 +28,7 @@ def transform_copy_img(path, new_path):
     img = Image.fromarray(img)
     img.save(new_path)
 
-data = pd.read_csv('/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv')
+data = pd.read_csv('pretrain_collected_data_splits.csv')
 paths = data['Path']
 
 new_paths = change_dirs(paths)
@@ -37,4 +37,4 @@ new_paths = change_dirs(paths)
 #    transform_copy_img(path, new_path)
 
 data['Path'] = new_paths
-data.to_csv('/home/adam_chlopowiec/data/eye_image_classification/resized_224x224_collected_data_splits.csv')
+data.to_csv('kaggle_collected_data_splits.csv')
