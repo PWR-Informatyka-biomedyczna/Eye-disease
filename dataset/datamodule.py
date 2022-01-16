@@ -26,11 +26,13 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  num_workers: int = 12,
                  shuffle_train: bool = True,
                  resampler: Callable = identity_resampler,
-                 pretraining: bool = False
+                 pretraining: bool = False,
+                 binary=False
                  ):
         super(EyeDiseaseDataModule, self).__init__()
         self.resampler: Callable = resampler
         self.pretraining = pretraining
+        self.binary = binary
         # path
         self.csv_path: str = csv_path
         # split names
@@ -71,7 +73,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                            self.train_transforms,
                            self.image_path_name,
                            self.target_name,
-                           pretraining=self.pretraining),
+                           pretraining=self.pretraining,
+                           binary=self.binary),
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
             num_workers=self.num_workers
@@ -87,7 +90,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                            self.val_transforms,
                            self.image_path_name,
                            self.target_name,
-                           pretraining=self.pretraining),
+                           pretraining=self.pretraining,
+                           binary=self.binary),
             batch_size=self.batch_size,
             num_workers=self.num_workers
         )
@@ -102,7 +106,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                            self.test_transforms,
                            self.image_path_name,
                            self.target_name,
-                           pretraining=self.pretraining),
+                           pretraining=self.pretraining,
+                           binary=self.binary),
             batch_size=self.batch_size,
             num_workers=self.num_workers
         )

@@ -8,6 +8,7 @@ from torchmetrics.functional import accuracy, f1
 from utils.metrics import f1_score, sensitivity, specificity, roc_auc
 
 from methods.base_model import BaseModel
+from methods.loss_functions import FocalLoss
 
 
 class Classifier(pl.LightningModule):
@@ -63,6 +64,7 @@ class Classifier(pl.LightningModule):
                 self.metrics[key][f'sensitivity_class_{cls}'] = sens
                 self.metrics[key][f'specificity_class_{cls}'] = spec
         self.criterion = nn.CrossEntropyLoss(weight=weights)
+        #self.criterion = FocalLoss(gamma=3, size_average=False)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
