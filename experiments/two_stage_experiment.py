@@ -29,24 +29,25 @@ SEED = 0
 PROJECT_NAME = 'TwoStageExperiment'
 #PROJECT_NAME = 'BinaryTraining'
 NUM_CLASSES = 2
-LR = [1e-4, 3e-4]
-OPTIM = ['nadam']
+LR = [1e-4]
+OPTIM = ['adamw']
 BATCH_SIZE = 24
-MAX_EPOCHS = 2
+MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
-PATIENCE = 5
+PATIENCE = 4
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 #RESAMPLER = threshold_to_glaucoma_with_ros
 RESAMPLER = identity_resampler
-TYPE = 'training' # pretraining, training, training-from-pretrained
-#MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/ResNet18Model/2021-12-15_15:59:16.045619/ResNet18Model.ckpt'
+#TYPE = 'stage_two_training' # pretraining, training, training-from-pretrained
+TYPE = 'training'
+#MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/training/RegNetY3_2gf/0.0001_nadam_TwoStageExperiment/RegNetY3_2gf-v9.ckpt'
 MODEL_PATH = None
 TEST_ONLY = False
 PRETRAINING = False
 BINARY = True
-STAGE_TWO = True
+STAGE_TWO = False
 TRAIN_SPLIT_NAME = 'train'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
@@ -67,18 +68,22 @@ def load_model(model, optimizer=None, lr_scheduler=None, mode: str = 'train', lr
                 model=model,
                 num_classes=NUM_CLASSES,
                 lr=lr,
-                weights=torch.Tensor([1, 1]),
+                weights=torch.Tensor([1, 2]),
                 optimizer=None,
                 lr_scheduler=None
                 )
     in_features = model.get_last_layer().in_features
     out_features = model.get_last_layer().out_features
     if mode == 'train':
-        if out_features > 2:
-            model.set_last_layer(torch.nn.Linear(in_features, 2))
-        classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
-                                        num_classes=NUM_CLASSES, lr=lr, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
-        classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+        if STAGE_TWO:
+            classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
+                                        num_classes=NUM_CLASSES, lr=lr, weights=torch.Tensor([1, 2]), optimizer=None, lr_scheduler=None)
+        else:
+            if out_features > 2:
+                model.set_last_layer(torch.nn.Linear(in_features, 2))
+            classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
+                                            num_classes=NUM_CLASSES, lr=lr, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
+            classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
     elif mode == 'test':
         if out_features < NUM_CLASSES:
             model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
@@ -114,7 +119,7 @@ def init_optimizer(model, config, lr=1e-4):
     if config == 'sgd':
         return torch.optim.SGD(model.parameters(), lr=lr, momentum=4e-3, dampening=0, nesterov=True, weight_decay=1e-6)
     if config == 'adamw':
-        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-7, amsgrad=True)
+        return torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=1e-5, amsgrad=False)
     if config == 'nadam':
         return torch.optim.NAdam(model.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=1e-5, 
                                  momentum_decay=4e-3)
@@ -225,9 +230,9 @@ def main():
                 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
                 if MODEL_PATH is not None:
                     if TEST_ONLY:
-                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='test', lr=lr, weights=weights, config=None)
+                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='test', lr=lr, weights=weights)
                     else:
-                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='train', lr=lr, weights=weights, config=None)
+                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='train', lr=lr, weights=weights)
                 
                 checkpoints_run_dir, model_type, input_size = create_log_path(model, suffix)
                 Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
@@ -298,11 +303,12 @@ def main():
                         mode='min'
                     ),
                     ModelCheckpoint(
-                        monitor=MONITOR,
+                        monitor="val_f1_macro",
                         dirpath=checkpoints_run_dir,
                         save_top_k=1,
                         filename=model_type,
-                        save_weights_only=True
+                        save_weights_only=True,
+                        mode='max'
                     )
                 ]
                 train_test(
