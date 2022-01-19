@@ -43,20 +43,9 @@ def train_transforms(
                         A.Rotate(limit=(-90, 90), p=0.8, interpolation=interpolation_mode),
                         A.HorizontalFlip(p=0.5),
                         A.VerticalFlip(p=0.5),
-<<<<<<< HEAD
-                        #A.Equalize(by_channels=False, p=0.5),
-                        #A.CLAHE(clip_limit=7.0, p=0.5),
                         A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.15, p=0.5),
                         A.CLAHE(clip_limit=3.0, p=0.5),
                         A.Cutout(num_holes=20, max_h_size=11, max_w_size=11, p=0.5),
-                        #A.GaussNoise(var_limit=(1.0, 5.0), per_channel=False, p=0.5),
-                        #A.GaussNoise(var_limit=(1.0, 25.0), per_channel=False, p=0.5),
-                        #A.RandomBrightnessContrast(brightness_limit=0.25, contrast_limit=0.3, p=0.5),
-=======
-                        A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.15, p=0.5),
-                        A.CLAHE(clip_limit=3.0, p=0.5),
-                        A.Cutout(num_holes=20, max_h_size=11, max_w_size=11, p=0.5),
->>>>>>> b4f22e44f58d4ba54cbad82a927bdb569ef4d437
                     ])
 
     albument = Albument(aug_A)
