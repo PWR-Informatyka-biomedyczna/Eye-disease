@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
+from typing import Dict
 
 from methods.base_model import BaseModel
 

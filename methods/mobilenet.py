@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torchvision.models import mobilenet_v3_large,mobilenet_v3_small
 
+from methods.base_model import BaseModel
 
 class MobileNetV3Large(BaseModel):
 
