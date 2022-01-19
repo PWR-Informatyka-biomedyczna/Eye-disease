@@ -1,0 +1,54 @@
+program: experiments.sweep_transforms
+method: random
+project: AugmentationOptimizing
+entity: kn-bmi
+metric:
+  goal: minimize
+  name: val_loss
+parameters:
+  rotate_p:
+    values: [0.2, 0.3, 0.5, 0.7, 0.8]
+  
+  horizontal_p:
+    values: [0.2, 0.3, 0.5, 0.7, 0.8]
+  
+  vertical_p:
+    values: [0.2, 0.3, 0.5, 0.7, 0.8]
+  
+  brightness_p:
+    values: [0.2, 0.3, 0.5, 0.7, 0.8]
+  
+  clahe_p:
+    values: [0.2, 0.3, 0.5, 0.7, 0.8]
+  
+  cutout_p:
+    values: [0.2, 0.3, 0.5, 0.7, 0.8]
+  
+  rotate_limit:
+    values: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+  
+  brightness_limit:
+    values: [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]
+  
+  contrast_limit:
+    values: [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]
+
+  clip_limit:
+    values: [1.0, 3.0, 5.0, 7.0, 9.0]
+  
+  num_holes:
+    values: [10, 20, 30, 40]
+  
+  max_h_size:
+    values: [2, 4, 6, 8, 10, 12]
+  
+  max_w_size:
+    values: [2, 4, 6, 8, 10, 12]
+
+command:
+  - ${env}
+  - PL_TORCH_DISTRIBUTED_BACKEND=gloo
+  - python3
+  - -m
+  - ${program}
+  - ${args}

@@ -69,8 +69,10 @@ def test_val_transforms(
     normalize: bool = True,
     interpolation_mode = cv2.INTER_NEAREST) -> transforms.Compose:
     
+    albument = Albument(A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode))
     transforms_list = [
-        transforms.Resize(target_size, interpolation=InterpolationMode.NEAREST),
+        ToNumpy(),
+        albument,
         transforms.ToTensor()
     ]
     if normalize:
