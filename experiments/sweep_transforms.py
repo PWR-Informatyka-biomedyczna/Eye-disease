@@ -29,7 +29,7 @@ PROJECT_NAME = 'AugmentationOptimizing'
 NUM_CLASSES = 4
 LR = 1e-4
 OPTIM = 'nadam'
-BATCH_SIZE = 16
+BATCH_SIZE = 128
 MAX_EPOCHS = 200
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -288,7 +288,7 @@ def main():
         #Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
             
         data_module = EyeDiseaseDataModule(
-            csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
+            csv_path='/home/adamch/data/resized_collected_data_splits.csv',
             train_split_name=TRAIN_SPLIT_NAME,
             val_split_name=VAL_SPLIT_NAME,
             test_split_name=TEST_SPLIT_NAME,
@@ -299,7 +299,7 @@ def main():
             target_name='Label',
             split_name='Split',
             batch_size=BATCH_SIZE,
-            num_workers=12,
+            num_workers=24,
             shuffle_train=True,
             resampler=RESAMPLER
         )

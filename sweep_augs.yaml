@@ -47,7 +47,6 @@ parameters:
 
 command:
   - ${env}
-  - PL_TORCH_DISTRIBUTED_BACKEND=gloo
   - python3
   - -m
   - ${program}

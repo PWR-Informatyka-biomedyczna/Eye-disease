@@ -54,5 +54,3 @@ class RegNetY3_2gfEnsemble(BaseModel):
     
     def get_last_layer(self):
         return self._feature_extractor.fc
-
-print(RegNetY3_2gfEnsemble(4))
