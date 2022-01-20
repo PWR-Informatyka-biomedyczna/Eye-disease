@@ -28,8 +28,8 @@ SEED = 0
 PROJECT_NAME = 'AugmentationOptimizing'
 NUM_CLASSES = 4
 LR = 1e-4
-OPTIM = ['nadam']
-BATCH_SIZE = 24
+OPTIM = 'nadam'
+BATCH_SIZE = 16
 MAX_EPOCHS = 200
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -211,17 +211,17 @@ def create_log_path(model, suffix):
 def init_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--rotate_p', type=float)
-    parser.add_argument('--horizontal_p', type=int)
+    parser.add_argument('--horizontal_p', type=float)
     parser.add_argument('--vertical_p', type=float)
     parser.add_argument('--brightness_p', type=float)
     parser.add_argument('--clahe_p', type=float)
     parser.add_argument('--cutout_p', type=float)
-    parser.add_argument('--rotate_limit', type=str)
+    parser.add_argument('--rotate_limit', type=int)
     parser.add_argument('--brightness_limit', type=float)
     parser.add_argument('--contrast_limit', type=float)
-    parser.add_argument('--clip_limit', type=bool)
-    parser.add_argument('--num_holes', type=str)
-    parser.add_argument('--max_h_size', type=float)
+    parser.add_argument('--clip_limit', type=float)
+    parser.add_argument('--num_holes', type=int)
+    parser.add_argument('--max_h_size', type=int)
     parser.add_argument('--max_w_size', type=int)
     return parser
 
