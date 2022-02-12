@@ -2,9 +2,11 @@ import random
 from pathlib import Path
 from methods.classifier import Classifier
 
+import wandb
 import numpy as np
 import cv2
 import torch
+import torch.nn as nn
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -21,47 +23,44 @@ from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_
 # PL_TORCH_DISTRIBUTED_BACKEND=gloo poetry run python3 -m experiments.base_experiment
 # experiment setup
 SEED = 0
-PROJECT_NAME = 'BinaryTraining'
-NUM_CLASSES = 2
-LR = [1e-4]
-OPTIM = ['nadam']
-BATCH_SIZE = 24
-MAX_EPOCHS = 200
+PROJECT_NAME = 'TransferLearningWithPretraining'
+num_classes = 2
+LR = 1e-4
+OPTIM = 'radam'
+BATCH_SIZE = 128
+MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 5
 GPUS = -1
 ENTITY_NAME = 'kn-bmi'
-#RESAMPLER = threshold_to_glaucoma_with_ros
 RESAMPLER = identity_resampler
-TYPE = 'training' # pretraining, training, training-from-pretrained
-#MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/ResNet18Model/2021-12-15_15:59:16.045619/ResNet18Model.ckpt'
+TYPE = 'pretraining' # pretraining, training, training-from-pretrained
 MODEL_PATH = None
 TEST_ONLY = False
-PRETRAINING = False
-BINARY = True
-<<<<<<< HEAD
-STAGE_TWO = False
-=======
->>>>>>> b4f22e44f58d4ba54cbad82a927bdb569ef4d437
-TRAIN_SPLIT_NAME = 'train'
-VAL_SPLIT_NAME = 'val'
-TEST_SPLIT_NAME = 'test'
+pretraining = True
+train_split_name = 'pretrain'
+val_split_name = 'preval'
+test_split_name = 'pretest'
+weights = torch.Tensor([1, 2])
 
-models_list = [
-        RegNetY3_2gf(NUM_CLASSES)
-    ]
+model = RegNetY3_2gf(num_classes)
 
 
 def seed_all(seed: int) -> None:
     np.random.seed(seed)
     torch.random.manual_seed(seed)
     random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def load_model(model, optimizer=None, lr_scheduler=None, mode: str = 'train', lr=1e-4, weights=torch.Tensor([1, 1, 2.5, 2])):
     classifier = Classifier(
                 model=model,
-                num_classes=NUM_CLASSES,
+                num_classes=num_classes,
                 lr=lr,
                 weights=torch.Tensor([1, 1]),
                 optimizer=None,
@@ -73,13 +72,13 @@ def load_model(model, optimizer=None, lr_scheduler=None, mode: str = 'train', lr
         if out_features > 2:
             model.set_last_layer(torch.nn.Linear(in_features, 2))
         classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
-                                        num_classes=NUM_CLASSES, lr=lr, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
-        classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+                                        num_classes=num_classes, lr=lr, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
+        classifier.model.set_last_layer(torch.nn.Linear(in_features, num_classes))
     elif mode == 'test':
-        if out_features < NUM_CLASSES:
-            model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+        if out_features < num_classes:
+            model.set_last_layer(torch.nn.Linear(in_features, num_classes))
         classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
-                                        num_classes=NUM_CLASSES, lr=lr, weights=torch.Tensor(1, 1, 1, 1), 
+                                        num_classes=num_classes, lr=lr, weights=torch.Tensor(1, 1, 1, 1), 
                                         optimizer=None, lr_scheduler=None)
     classifier.optimizer = optimizer
     classifier.lr_scheduler = lr_scheduler
@@ -92,7 +91,7 @@ def init_optimizer(model, config, lr=1e-4):
     if MODEL_PATH is not None:
         classifier = Classifier(
                     model=model,
-                    num_classes=NUM_CLASSES,
+                    num_classes=num_classes,
                     lr=lr,
                     weights=torch.Tensor([1, 1]),
                     optimizer=None,
@@ -103,8 +102,8 @@ def init_optimizer(model, config, lr=1e-4):
         if out_features > 2:
                 model.set_last_layer(torch.nn.Linear(in_features, 2))
         dummy_classifier = classifier.load_from_checkpoint(checkpoint_path=MODEL_PATH, model=model, 
-                                            num_classes=NUM_CLASSES, lr=1e-4, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
-        dummy_classifier.model.set_last_layer(torch.nn.Linear(in_features, NUM_CLASSES))
+                                            num_classes=num_classes, lr=1e-4, weights=torch.Tensor([1, 1]), optimizer=None, lr_scheduler=None)
+        dummy_classifier.model.set_last_layer(torch.nn.Linear(in_features, num_classes))
         model = dummy_classifier.model
 
     if config == 'sgd':
@@ -114,6 +113,8 @@ def init_optimizer(model, config, lr=1e-4):
     if config == 'nadam':
         return torch.optim.NAdam(model.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=1e-5, 
                                  momentum_decay=4e-3)
+    if config == 'radam':
+        return torch.optim.RAdam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=1e-5)
 
     optimizer = config.optimizer
     if optimizer == 'adam':
@@ -209,94 +210,226 @@ def create_log_path(model, suffix):
     return checkpoints_run_dir, model_type, input_size
 
 
-def main():
+def freeze(model, n_params):
+    i = 0
+    for param in model.parameters():
+        if i < n_params:
+            param.requires_grad = False
+            i += 1
+    
+    
+def get_train_params_count(model):
+    i = 0
+    for _ in model.parameters():
+        i += 1
+    return i
+
+
+def unfreeze(model, n_params):
+    i = 0
+    n_params = (int)(n_params)
+    n = get_train_params_count(model)
+    start = n - n_params
+    for param in model.parameters():
+        if start <= i and i <= n:
+            param.requires_grad = True
+        i += 1
+
+def main(model, optimizer, lr_scheduler, initial_lr, max_epoch, weights, save_last, early_stop: bool, log: bool, train_split, val_split, test_split, pretrain, 
+         num_classes, test_only=False):
+    wandb.finish()
     seed_all(SEED)
-    #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
-    weights = torch.Tensor([1, 2])
-    for optim in OPTIM:
-        for lr in LR:
-            for model in models_list:
-                suffix = str(lr) + '_' + optim
-                optimizer = init_optimizer(model, optim, lr=lr)
-                lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
-                if MODEL_PATH is not None:
-                    if TEST_ONLY:
-                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='test', lr=lr, weights=weights, config=None)
-                    else:
-                        model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='train', lr=lr, weights=weights, config=None)
-                
-                checkpoints_run_dir, model_type, input_size = create_log_path(model, suffix)
-                Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
-                
-                data_module = EyeDiseaseDataModule(
-                    csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
-                    train_split_name=TRAIN_SPLIT_NAME,
-                    val_split_name=VAL_SPLIT_NAME,
-                    test_split_name=TEST_SPLIT_NAME,
-                    train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
-                    image_path_name='Path',
-                    target_name='Label',
-                    split_name='Split',
-                    batch_size=BATCH_SIZE,
-                    num_workers=12,
-                    shuffle_train=True,
-                    resampler=RESAMPLER,
-                    pretraining=PRETRAINING,
-                    binary=BINARY
-                )
-                data_module.prepare_data()
+    suffix = str(initial_lr) + '_' + OPTIM
+    checkpoints_run_dir, model_type, input_size = create_log_path(model, suffix)
+    Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
 
-                hparams = {
-                    'dataset': type(data_module).__name__,
-                    'model_type': model_type,
-                    'lr': lr,
-                    'batch_size': BATCH_SIZE,
-                    'optimizer': type(optimizer).__name__,
-                    'resampler': RESAMPLER.__name__,
-                    'num_classes': NUM_CLASSES,
-                    #'run_id': run_save_dir
-                }
+    data_module = EyeDiseaseDataModule(
+        csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
+        train_split_name=train_split,
+        val_split_name=val_split,
+        test_split_name=test_split,
+        train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+        val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+        test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+        image_path_name='Path',
+        target_name='Label',
+        split_name='Split',
+        batch_size=BATCH_SIZE,
+        num_workers=2,
+        shuffle_train=True,
+        resampler=RESAMPLER,
+        pretraining=pretrain,
+        #binary=BINARY
+    )
+    data_module.prepare_data()
 
-                logger = WandbLogger(
-                    save_dir=LOGS_DIR,
-                    config=hparams,
-                    project=PROJECT_NAME,
-                    log_model=False,
-                    entity=ENTITY_NAME
-                )
-
-                callbacks = [
-                    EarlyStopping(
+    hparams = {
+        'dataset': type(data_module).__name__,
+        'model_type': model_type,
+        'lr': initial_lr,
+        'batch_size': BATCH_SIZE,
+        'optimizer': type(optimizer).__name__,
+        'resampler': RESAMPLER.__name__,
+        'num_classes': num_classes,
+        #'run_id': run_save_dir
+    }
+    if log:
+        logger = WandbLogger(
+            save_dir=LOGS_DIR,
+            config=hparams,
+            project=PROJECT_NAME,
+            log_model=False,
+            entity=ENTITY_NAME
+        )
+    else:
+        logger = None
+    callbacks = []
+    if save_last:
+        callbacks.append(ModelCheckpoint(
                         monitor=MONITOR,
-                        patience=PATIENCE,
-                        mode='min'
-                    ),
-                    ModelCheckpoint(
-                        monitor="val_sensitivity_class_1",
                         dirpath=checkpoints_run_dir,
+                        save_last = True,
+                        #save_top_k=1,
+                        filename=model_type,
+                        save_weights_only=True
+                        ))
+    else:
+        callbacks.append(ModelCheckpoint(
+                        monitor=MONITOR,
+                        dirpath=checkpoints_run_dir,
+                        #save_last = True,
                         save_top_k=1,
                         filename=model_type,
                         save_weights_only=True
-                    )
-                ]
-                train_test(
-                    model=model,
-                    datamodule=data_module,
-                    max_epochs=MAX_EPOCHS,
-                    num_classes=NUM_CLASSES,
-                    gpus=GPUS,
-                    lr=lr,
-                    callbacks=callbacks,
-                    logger=logger,
-                    weights=weights,
-                    optimizer=optimizer,
-                    lr_scheduler=lr_scheduler,
-                    test_only=TEST_ONLY
-                )
-                logger.experiment.finish()
+                        ))
+    if early_stop:
+        callbacks.append(EarlyStopping(
+                        monitor=MONITOR,
+                        patience=PATIENCE,
+                        mode='min'
+                        ))
+    
+    train_test(
+        model=model,
+        datamodule=data_module,
+        max_epochs=max_epoch,
+        num_classes=num_classes,
+        gpus=GPUS,
+        lr=initial_lr,
+        callbacks=callbacks,
+        logger=logger,
+        weights=weights,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        test_only=test_only,
+        precision=32
+    )
+    
+    if log:
+        logger.experiment.finish()
+
+
+# def main():
+#     seed_all(SEED)
+#     #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
+#     weights = torch.Tensor([1, 2])
+#     for optim in OPTIM:
+#         for lr in LR:
+#             for model in models_list:
+#                 suffix = str(lr) + '_' + optim
+#                 optimizer = init_optimizer(model, optim, lr=lr)
+#                 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+#                 if MODEL_PATH is not None:
+#                     if TEST_ONLY:
+#                         model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='test', lr=lr, weights=weights, config=None)
+#                     else:
+#                         model = load_model(model, optimizer=optimizer, lr_scheduler=lr_scheduler, mode='train', lr=lr, weights=weights, config=None)
+                
+#                 checkpoints_run_dir, model_type, input_size = create_log_path(model, suffix)
+#                 Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
+                
+#                 data_module = EyeDiseaseDataModule(
+#                     csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
+#                     train_split_name=TRAIN_SPLIT_NAME,
+#                     val_split_name=VAL_SPLIT_NAME,
+#                     test_split_name=TEST_SPLIT_NAME,
+#                     train_transforms=train_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+#                     val_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+#                     test_transforms=test_val_transforms(input_size, NORMALIZE, cv2.INTER_NEAREST),
+#                     image_path_name='Path',
+#                     target_name='Label',
+#                     split_name='Split',
+#                     batch_size=BATCH_SIZE,
+#                     num_workers=12,
+#                     shuffle_train=True,
+#                     resampler=RESAMPLER,
+#                     pretraining=PRETRAINING,
+#                     binary=BINARY
+#                 )
+#                 data_module.prepare_data()
+
+#                 hparams = {
+#                     'dataset': type(data_module).__name__,
+#                     'model_type': model_type,
+#                     'lr': lr,
+#                     'batch_size': BATCH_SIZE,
+#                     'optimizer': type(optimizer).__name__,
+#                     'resampler': RESAMPLER.__name__,
+#                     'num_classes': NUM_CLASSES,
+#                     #'run_id': run_save_dir
+#                 }
+
+#                 logger = WandbLogger(
+#                     save_dir=LOGS_DIR,
+#                     config=hparams,
+#                     project=PROJECT_NAME,
+#                     log_model=False,
+#                     entity=ENTITY_NAME
+#                 )
+
+#                 callbacks = [
+#                     EarlyStopping(
+#                         monitor=MONITOR,
+#                         patience=PATIENCE,
+#                         mode='min'
+#                     ),
+#                     ModelCheckpoint(
+#                         monitor="val_sensitivity_class_1",
+#                         dirpath=checkpoints_run_dir,
+#                         save_top_k=1,
+#                         filename=model_type,
+#                         save_weights_only=True
+#                     )
+#                 ]
+#                 train_test(
+#                     model=model,
+#                     datamodule=data_module,
+#                     max_epochs=MAX_EPOCHS,
+#                     num_classes=NUM_CLASSES,
+#                     gpus=GPUS,
+#                     lr=lr,
+#                     callbacks=callbacks,
+#                     logger=logger,
+#                     weights=weights,
+#                     optimizer=optimizer,
+#                     lr_scheduler=lr_scheduler,
+#                     test_only=TEST_ONLY
+#                 )
+#                 logger.experiment.finish()
 
 
 if __name__ == '__main__':
-    main()
+    # Train last layer
+    freeze(model, get_train_params_count(model) - 1)
+    optimizer = init_optimizer(model, OPTIM, lr=LR)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=8)
+    main(model=model, optimizer=optimizer, lr_scheduler=lr_scheduler, initial_lr=LR, max_epoch=5, weights=weights, save_last=True, early_stop=False, log=False, 
+        train_split=train_split_name, val_split=val_split_name, test_split=test_split_name, pretrain=pretraining, num_classes=num_classes)
+
+    # Fine-tune top layers
+    unfreeze(model, get_train_params_count(model))
+    freeze(model, get_train_params_count(model) * (1/2))
+    optimizer = init_optimizer(model, OPTIM, lr=LR)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30)
+    main(model=model, optimizer=optimizer, lr_scheduler=lr_scheduler, initial_lr=LR, max_epoch=MAX_EPOCHS, weights=weights, save_last=False, early_stop=True, log=True, 
+        train_split=train_split_name, val_split=val_split_name, test_split=test_split_name, pretrain=pretraining, num_classes=num_classes)

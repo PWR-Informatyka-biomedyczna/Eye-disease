@@ -20,7 +20,7 @@ class Albument:
     def __init__(self, augment) -> None:
         self.augment = augment
 
-    def __call__(self, img: Image) -> np.ndarray:
+    def __call__(self, img: np.ndarray) -> np.ndarray:
         return self.augment(image=img)['image']
 
 class Imgaugment:
@@ -40,6 +40,7 @@ def train_transforms(
 
     aug_A = A.Compose(
                     [
+                        A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode),
                         A.Rotate(limit=(-90, 90), p=0.8, interpolation=interpolation_mode),
                         A.HorizontalFlip(p=0.5),
                         A.VerticalFlip(p=0.5),
@@ -51,7 +52,6 @@ def train_transforms(
     albument = Albument(aug_A)
 
     transforms_list = [
-        transforms.Resize(target_size, interpolation=InterpolationMode.NEAREST),
         ToNumpy(),
         albument,
         transforms.ToTensor()
