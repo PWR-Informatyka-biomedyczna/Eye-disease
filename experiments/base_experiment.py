@@ -419,13 +419,6 @@ def main(model, optimizer, lr_scheduler, initial_lr, max_epoch, weights, save_la
 
 
 if __name__ == '__main__':
-    # Train last layer
-    freeze(model, get_train_params_count(model) - 1)
-    optimizer = init_optimizer(model, OPTIM, lr=LR)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=8)
-    main(model=model, optimizer=optimizer, lr_scheduler=lr_scheduler, initial_lr=LR, max_epoch=5, weights=weights, save_last=True, early_stop=False, log=False, 
-        train_split=train_split_name, val_split=val_split_name, test_split=test_split_name, pretrain=pretraining, num_classes=num_classes)
-
     # Fine-tune top layers
     unfreeze(model, get_train_params_count(model))
     freeze(model, get_train_params_count(model) * (1/2))
