@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 
-
+from experiments.common import seed_all
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, Xception
@@ -40,10 +40,7 @@ MODEL_PATH = None
 TEST_ONLY = False
 PRETRAINING = False
 BINARY = True
-<<<<<<< HEAD
 STAGE_TWO = False
-=======
->>>>>>> b4f22e44f58d4ba54cbad82a927bdb569ef4d437
 TRAIN_SPLIT_NAME = 'train'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
@@ -52,11 +49,6 @@ models_list = [
         RegNetY3_2gf(NUM_CLASSES)
     ]
 
-
-def seed_all(seed: int) -> None:
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-    random.seed(seed)
 
 def load_model(model, optimizer=None, lr_scheduler=None, mode: str = 'train', lr=1e-4, weights=torch.Tensor([1, 1, 2.5, 2])):
     classifier = Classifier(

@@ -12,6 +12,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torchvision import transforms
 
 
+from experiments.common import seed_all
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms, Albument, ToNumpy
 #from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, Xception
@@ -53,10 +54,6 @@ models_list = [
     ]
 
 
-def seed_all(seed: int) -> None:
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-    random.seed(seed)
 
 def load_model(model, optimizer=None, lr_scheduler=None, mode: str = 'train', lr=1e-4, weights=torch.Tensor([1, 1, 2.5, 2])):
     classifier = Classifier(

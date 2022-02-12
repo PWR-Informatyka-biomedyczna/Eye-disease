@@ -13,7 +13,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 
-
+from experiments.common import seed_all
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods import ResNet18Model, ResNet50Model, EfficientNetB0, EfficientNetB1, EfficientNetB2, EfficientNetB3, EfficientNetB4, ResNext50
@@ -60,12 +60,6 @@ def load_model(model, mode: str = 'train'):
         model.load_state_dict(torch.load(MODEL_PATH))
     return model
     
-
-def seed_all(seed: int) -> None:
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-    random.seed(seed)
-
 
 def main():
     seed_all(SEED)
