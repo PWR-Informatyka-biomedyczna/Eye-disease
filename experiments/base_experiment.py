@@ -8,7 +8,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 
-from experiments.common import seed_all, freeze, unfreeze, get_train_params_count
+from experiments.common import seed_all, freeze, unfreeze, get_train_params_count, load_lightning_model
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
 from methods import RegNetY3_2gf
@@ -35,9 +35,9 @@ BINARY = True
 TRAIN_SPLIT_NAME = 'train'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
+MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/RegNetY3_2gf/0.0001_radam/RegNetY3_2gf-v1.ckpt'
 
-model = RegNetY3_2gf(NUM_CLASSES)
-
+models = [RegNetY3_2gf(NUM_CLASSES)]
 
 def init_optimizer(model, optimizer, lr=1e-4):
     if optimizer == 'sgd':
@@ -56,87 +56,90 @@ def init_optimizer(model, optimizer, lr=1e-4):
 def main():
     seed_all(SEED)
     #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
-    weights = torch.Tensor([1, 2])
-    unfreeze(model, get_train_params_count(model))
-    freeze(model, get_train_params_count(model) * (1/2))
-    optimizer = init_optimizer(model, OPTIM, lr=LR)
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
-    
-    run_id = hashlib.md5(
-            bytes(str(time.time()), encoding='utf-8')
-        ).hexdigest()
-    checkpoints_run_dir = CHECKPOINTS_DIR / run_id
-    
-    Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
-    
-    data_module = EyeDiseaseDataModule(
-        csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
-        train_split_name=TRAIN_SPLIT_NAME,
-        val_split_name=VAL_SPLIT_NAME,
-        test_split_name=TEST_SPLIT_NAME,
-        train_transforms=train_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
-        val_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
-        test_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
-        image_path_name='Path',
-        target_name='Label',
-        split_name='Split',
-        batch_size=BATCH_SIZE,
-        num_workers=12,
-        shuffle_train=True,
-        resampler=RESAMPLER,
-        pretraining=PRETRAINING,
-        binary=BINARY
-    )
-    data_module.prepare_data()
-
-    hparams = {
-        'dataset': type(data_module).__name__,
-        'model_type': type(model).__name__,
-        'lr': LR,
-        'batch_size': BATCH_SIZE,
-        'optimizer': type(optimizer).__name__,
-        'resampler': RESAMPLER.__name__,
-        'num_classes': NUM_CLASSES,
-        'run_id': run_id
-    }
-
-    logger = WandbLogger(
-        save_dir=LOGS_DIR,
-        config=hparams,
-        project=PROJECT_NAME,
-        log_model=False,
-        entity=ENTITY_NAME
-    )
-
-    callbacks = [
-        EarlyStopping(
-            monitor=MONITOR,
-            patience=PATIENCE,
-            mode='min'
-        ),
-        ModelCheckpoint(
-            monitor="val_loss",
-            dirpath=checkpoints_run_dir,
-            save_top_k=1,
-            filename=type(model).__name__,
-            save_weights_only=True
+    for model in models:
+        if MODEL_PATH is not None:
+            model = load_lightning_model(model, LR, NUM_CLASSES, MODEL_PATH)
+        weights = torch.Tensor([1, 2])
+        unfreeze(model, get_train_params_count(model))
+        freeze(model, get_train_params_count(model) * (1/2))
+        optimizer = init_optimizer(model, OPTIM, lr=LR)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+        
+        run_id = hashlib.md5(
+                bytes(str(time.time()), encoding='utf-8')
+            ).hexdigest()
+        checkpoints_run_dir = CHECKPOINTS_DIR / run_id
+        
+        Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
+        
+        data_module = EyeDiseaseDataModule(
+            csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
+            train_split_name=TRAIN_SPLIT_NAME,
+            val_split_name=VAL_SPLIT_NAME,
+            test_split_name=TEST_SPLIT_NAME,
+            train_transforms=train_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
+            val_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
+            test_transforms=test_val_transforms(model.input_size, NORMALIZE, cv2.INTER_NEAREST),
+            image_path_name='Path',
+            target_name='Label',
+            split_name='Split',
+            batch_size=BATCH_SIZE,
+            num_workers=12,
+            shuffle_train=True,
+            resampler=RESAMPLER,
+            pretraining=PRETRAINING,
+            binary=BINARY
         )
-    ]
-    train_test(
-        model=model,
-        datamodule=data_module,
-        max_epochs=MAX_EPOCHS,
-        num_classes=NUM_CLASSES,
-        gpus=GPUS,
-        lr=LR,
-        callbacks=callbacks,
-        logger=logger,
-        weights=weights,
-        optimizer=optimizer,
-        lr_scheduler=lr_scheduler,
-        test_only=TEST_ONLY
-    )
-    logger.experiment.finish()
+        data_module.prepare_data()
+
+        hparams = {
+            'dataset': type(data_module).__name__,
+            'model_type': type(model).__name__,
+            'lr': LR,
+            'batch_size': BATCH_SIZE,
+            'optimizer': type(optimizer).__name__,
+            'resampler': RESAMPLER.__name__,
+            'num_classes': NUM_CLASSES,
+            'run_id': run_id
+        }
+
+        logger = WandbLogger(
+            save_dir=LOGS_DIR,
+            config=hparams,
+            project=PROJECT_NAME,
+            log_model=False,
+            entity=ENTITY_NAME
+        )
+
+        callbacks = [
+            EarlyStopping(
+                monitor=MONITOR,
+                patience=PATIENCE,
+                mode='min'
+            ),
+            ModelCheckpoint(
+                monitor="val_loss",
+                dirpath=checkpoints_run_dir,
+                save_top_k=1,
+                filename=type(model).__name__,
+                save_weights_only=True
+            )
+        ]
+        train_test(
+            model=model,
+            datamodule=data_module,
+            max_epochs=MAX_EPOCHS,
+            num_classes=NUM_CLASSES,
+            gpus=GPUS,
+            lr=LR,
+            callbacks=callbacks,
+            logger=logger,
+            weights=weights,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            test_only=TEST_ONLY
+        )
+        logger.experiment.finish()
 
 
 if __name__ == '__main__':
