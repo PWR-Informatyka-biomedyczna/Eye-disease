@@ -42,4 +42,5 @@ class EyeDiseaseData(Dataset):
         if self.binary:
             if label > 1:
                 label = 1
+                
         return {'input': image, 'target': label}

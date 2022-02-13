@@ -1,12 +1,9 @@
 from typing import Tuple, Dict
-from torchvision.transforms import transforms, InterpolationMode
+from torchvision.transforms import transforms
 
 from PIL import Image
-import torch
 import numpy as np
 import albumentations as A
-import imgaug as ia
-import imgaug.augmenters as iaa
 import cv2
 
 
@@ -40,6 +37,7 @@ def train_transforms(
 
     aug_A = A.Compose(
                     [
+                        A.Resize(target_size[0], target_size[1], interpolation=interpolation_mode),
                         A.Rotate(limit=(-90, 90), p=0.8, interpolation=interpolation_mode),
                         A.HorizontalFlip(p=0.5),
                         A.VerticalFlip(p=0.5),
@@ -51,7 +49,6 @@ def train_transforms(
     albument = Albument(aug_A)
 
     transforms_list = [
-        transforms.Resize(target_size, interpolation=InterpolationMode.NEAREST),
         ToNumpy(),
         albument,
         transforms.ToTensor()

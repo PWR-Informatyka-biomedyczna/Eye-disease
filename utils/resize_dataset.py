@@ -32,9 +32,9 @@ data = pd.read_csv('kaggle_pretrain_collected_data_splits_base.csv')
 paths = data['Path']
 
 new_paths = change_dirs(paths)
-#make_dirs(new_paths)
-#for path, new_path in tqdm.tqdm(zip(paths, new_paths)):
-#    transform_copy_img(path, new_path)
+make_dirs(new_paths)
+for path, new_path in tqdm.tqdm(zip(paths, new_paths)):
+    transform_copy_img(path, new_path)
 
 data['Path'] = new_paths
 data.to_csv('kaggle_pretrain_collected_data_splits2.csv')

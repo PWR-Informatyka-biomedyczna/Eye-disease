@@ -92,13 +92,13 @@ def main():
 
     hparams = {
         'dataset': type(data_module).__name__,
-        'model_type': model_type,
-        'lr': lr,
+        'model_type': type(model).__name__,
+        'lr': LR,
         'batch_size': BATCH_SIZE,
         'optimizer': type(optimizer).__name__,
         'resampler': RESAMPLER.__name__,
         'num_classes': NUM_CLASSES,
-        #'run_id': run_save_dir
+        'run_id': run_id
     }
 
     logger = WandbLogger(
@@ -116,10 +116,10 @@ def main():
             mode='min'
         ),
         ModelCheckpoint(
-            monitor="val_sensitivity_class_1",
+            monitor="val_loss",
             dirpath=checkpoints_run_dir,
             save_top_k=1,
-            filename=model_type,
+            filename=type(model).__name__,
             save_weights_only=True
         )
     ]
@@ -129,7 +129,7 @@ def main():
         max_epochs=MAX_EPOCHS,
         num_classes=NUM_CLASSES,
         gpus=GPUS,
-        lr=lr,
+        lr=LR,
         callbacks=callbacks,
         logger=logger,
         weights=weights,

@@ -38,17 +38,15 @@ def train_test(
     :param logger:
     :return:
     """
-    if isinstance(model, Classifier):
-        module = model
-    else:
-        module = Classifier(
-            model=model,
-            num_classes=num_classes,
-            lr=lr,
-            optimizer=optimizer,
-            weights=weights,
-            lr_scheduler=lr_scheduler
-        )
+    
+    module = Classifier(
+        model=model,
+        num_classes=num_classes,
+        lr=lr,
+        optimizer=optimizer,
+        weights=weights,
+        lr_scheduler=lr_scheduler
+    )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
         gpus=gpus,
