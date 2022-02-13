@@ -17,7 +17,7 @@ class Albument:
     def __init__(self, augment) -> None:
         self.augment = augment
 
-    def __call__(self, img: Image) -> np.ndarray:
+    def __call__(self, img: np.ndarray) -> np.ndarray:
         return self.augment(image=img)['image']
 
 class Imgaugment:
