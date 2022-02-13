@@ -70,7 +70,7 @@ def main():
     Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
     
     data_module = EyeDiseaseDataModule(
-        csv_path='/media/data/adam_chlopowiec/eye_image_classification/resized_collected_data_splits.csv',
+        csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_collected_data_splits.csv',
         train_split_name=TRAIN_SPLIT_NAME,
         val_split_name=VAL_SPLIT_NAME,
         test_split_name=TEST_SPLIT_NAME,
