@@ -48,20 +48,22 @@ class Classifier(pl.LightningModule):
                 'accuracy': accuracy,
                 'f1_micro': f1_micro,
                 'f1_macro': f1_macro,
-                #'roc_auc_ovr': roc_auc_ovr
             }
             f1_funcs = []
             sensitivity_funcs = []
             specificity_funcs = []
+            roc_auc_funcs = []
             for cls in range(num_classes):
                 f1_funcs.append(partial(f1_score, current_class=cls))
                 sensitivity_funcs.append(partial(sensitivity, current_class=cls))
                 specificity_funcs.append(partial(specificity, current_class=cls))
+                roc_auc_funcs.append(partial(roc_auc, current_cls=cls))
 
-            for f1_fun, sens, spec, cls in zip(f1_funcs, sensitivity_funcs, specificity_funcs, range(num_classes)):
+            for f1_fun, sens, spec, roc_auc_f, cls in zip(f1_funcs, sensitivity_funcs, specificity_funcs, roc_auc_funcs, range(num_classes)):
                 self.metrics[key][f'f1_class_{cls}'] = f1_fun
                 self.metrics[key][f'sensitivity_class_{cls}'] = sens
                 self.metrics[key][f'specificity_class_{cls}'] = spec
+                self.metrics[key][f'roc_auc_class_{cls}'] = roc_auc_f
         self.criterion = nn.CrossEntropyLoss(weight=weights)
         self.dicts_to_log = []
         self.test_dicts = []
