@@ -63,6 +63,8 @@ class Classifier(pl.LightningModule):
                 self.metrics[key][f'sensitivity_class_{cls}'] = sens
                 self.metrics[key][f'specificity_class_{cls}'] = spec
         self.criterion = nn.CrossEntropyLoss(weight=weights)
+        self.dicts_to_log = []
+        self.test_dicts = []
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
@@ -103,9 +105,23 @@ class Classifier(pl.LightningModule):
         y_pred = self.model(batch)
         loss = self.criterion(y_pred, batch['target'])
         self.log('val_loss', loss, on_epoch=True, prog_bar=True)
-        self._calculate_score(y_pred, batch['target'], split='val', on_step=False, on_epoch=True)
+        dict_to_log = {'pred': y_pred, 'target': batch['target']}
+        self.dicts_to_log.append(dict_to_log)
         return loss
 
+    def validation_epoch_end(self, validation_outputs):
+        all_preds = []
+        all_targets = []
+        for output in self.dicts_to_log:
+            for pred in output['pred']:
+                all_preds.append(pred)
+            for target in output['target']:
+                all_targets.append(target)
+        all_preds = torch.stack(all_preds)
+        all_targets = torch.stack(all_targets)
+        self._calculate_score(all_preds, all_targets, split='val', on_step=False, on_epoch=True)
+        self.dicts_to_log = []
+        
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> None:
         """
         Test step of model
@@ -116,7 +132,21 @@ class Classifier(pl.LightningModule):
         :return:
         """
         y_pred = self.model(batch)
-        self._calculate_score(y_pred, batch['target'], split='test', on_step=False, on_epoch=True)
+        dict_to_log = {'pred': y_pred, 'target': batch['target']}
+        self.test_dicts.append(dict_to_log)
+        
+    def test_epoch_end(self, test_outputs):
+        all_preds = []
+        all_targets = []
+        for output in self.test_dicts:
+            for pred in output['pred']:
+                all_preds.append(pred)
+            for target in output['target']:
+                all_targets.append(target)
+        all_preds = torch.stack(all_preds)
+        all_targets = torch.stack(all_targets)
+        self._calculate_score(all_preds, all_targets, split='test', on_step=False, on_epoch=True)
+        self.test_dicts = []
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """
