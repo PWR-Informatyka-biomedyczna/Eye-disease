@@ -16,6 +16,15 @@ def mask(y_pred: torch.Tensor, y_true: torch.Tensor, current_class: int) -> Tupl
     return new_y_pred, new_y_true
 
 
+def mask_roc_auc(probas: torch.Tensor, y_true: torch.Tensor, current_class: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Create mask for calculating ROC AUC with respect to particular class
+    """
+    new_probas = probas[:, current_class]
+    new_y_true = torch.where(y_true == current_class, 1, 0)
+    return new_probas, new_y_true
+
+
 def true_positive(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     """
     Calculate true positive ratio
@@ -56,6 +65,7 @@ def sensitivity(probas: torch.Tensor, y_true: torch.Tensor, current_class: int) 
     fn = false_negative(new_pred, new_true)
     return tp / (tp + fn + 1e-10)
 
+
 def specificity(probas: torch.Tensor, y_true: torch.Tensor, current_class: int) -> torch.Tensor:
     """
     Calculate specificity:
@@ -67,6 +77,7 @@ def specificity(probas: torch.Tensor, y_true: torch.Tensor, current_class: int) 
     tn = true_negative(new_pred, new_true)
     fp = false_positive(new_pred, new_true)
     return tn / (tn + fp + 1e-10)  
+
 
 def f1_score(probas: torch.Tensor, y_true: torch.Tensor, current_class: int):
     """
@@ -82,16 +93,34 @@ def f1_score(probas: torch.Tensor, y_true: torch.Tensor, current_class: int):
     return 2 * tp / (2 * tp + fp + fn + 1e-10)   
 
 
-def roc_auc(probas: torch.Tensor, y_true: torch.Tensor, strategy: str = 'ovr'):
+def roc_auc(probas: torch.Tensor, y_true: torch.Tensor, current_class: int):
     """
     Calculate ROC AUC
     """
     probas = probas.cpu()
     y_true = y_true.cpu()
-    if len(y_true.unique()) > 1:
-        y_true_one_hot = one_hot(y_true, probas.shape[1])
-        print(y_true_one_hot)
-        y_true_one_hot = np.asarray(y_true_one_hot[0])
-        print(y_true_one_hot)
-        return roc_auc_score(y_true_one_hot, probas, multi_class=strategy)
-    return -1
+    new_probas, new_y_true = mask_roc_auc(probas, y_true, current_class=current_class)
+    if len(new_y_true.unique()) <= 1:
+        return -1
+    return roc_auc_score(new_y_true, new_probas)
+
+
+def mean_metrics(metrics, prefix, sep="_"):
+    to_mean_metrics = {}
+    for metric in metrics[0].keys():
+        to_mean_metrics.update({metric: []})
+
+    for partial_metrics in metrics:
+        for metric, value in partial_metrics.items():
+            to_mean_metrics[metric].append(value)
+
+    means = {}
+    for metric, values in to_mean_metrics.items():
+        to_mean = []
+        for value in values:
+            if isinstance(value, torch.Tensor):
+                to_mean.append(value.item())
+            else:
+                to_mean.append(value)
+        means[prefix + sep + metric] = np.mean(to_mean)
+    return means

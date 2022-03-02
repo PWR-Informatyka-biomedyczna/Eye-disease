@@ -24,7 +24,8 @@ def train_test(
         strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False),
         weights: torch.Tensor = None,
         lr_scheduler: torch.optim.lr_scheduler = None,
-        test_only: bool = False
+        test_only: bool = False,
+        cross_val: bool = True
         ):
     """
     Base experiment function
@@ -38,15 +39,17 @@ def train_test(
     :param logger:
     :return:
     """
-    
-    module = Classifier(
-        model=model,
-        num_classes=num_classes,
-        lr=lr,
-        optimizer=optimizer,
-        weights=weights,
-        lr_scheduler=lr_scheduler
-    )
+    if isinstance(model, Classifier):
+        module = model
+    else:
+        module = Classifier(
+            model=model,
+            num_classes=num_classes,
+            lr=lr,
+            optimizer=optimizer,
+            weights=weights,
+            lr_scheduler=lr_scheduler
+        )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
         gpus=gpus,
@@ -60,6 +63,14 @@ def train_test(
             model=module,
             test_dataloaders=datamodule.test_dataloader()
         )
+        return module.test_score
+    elif cross_val:
+        trainer.fit(
+            model=module,
+            train_dataloaders=datamodule.kfold_train_dataloader(),
+            val_dataloaders=datamodule.kfold_val_dataloader()
+        )
+        return module.val_score
     else:
         trainer.fit(
             model=module,
@@ -69,3 +80,4 @@ def train_test(
         trainer.test(
             test_dataloaders=datamodule.test_dataloader()
         )
+        return module.test_score
