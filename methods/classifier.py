@@ -50,7 +50,6 @@ class Classifier(pl.LightningModule):
                 'accuracy': accuracy,
                 'f1_micro': f1_micro,
                 'f1_macro': f1_macro,
-                #'roc_auc_ovr': roc_auc_ovr
             }
             self.metrics[key][self.MEAN_METRICS] = {
                 "sensitivity_mean": [],
@@ -140,6 +139,19 @@ class Classifier(pl.LightningModule):
         self._calculate_score(all_preds, all_targets, split='val', on_step=False, on_epoch=True)
         self.dicts_to_log = []
 
+    def validation_epoch_end(self, validation_outputs):
+        all_preds = []
+        all_targets = []
+        for output in self.dicts_to_log:
+            for pred in output['pred']:
+                all_preds.append(pred)
+            for target in output['target']:
+                all_targets.append(target)
+        all_preds = torch.stack(all_preds)
+        all_targets = torch.stack(all_targets)
+        self._calculate_score(all_preds, all_targets, split='val', on_step=False, on_epoch=True)
+        self.dicts_to_log = []
+        
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> None:
         """
         Test step of model
