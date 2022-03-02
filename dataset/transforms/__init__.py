@@ -42,7 +42,7 @@ def train_transforms(
                         A.HorizontalFlip(p=0.5),
                         A.VerticalFlip(p=0.5),
                         A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.15, p=0.5),
-                        A.CLAHE(clip_limit=3.0, p=0.5),
+                        #A.CLAHE(clip_limit=3.0, p=0.5),
                         A.Cutout(num_holes=20, max_h_size=11, max_w_size=11, p=0.5),
                     ])
 

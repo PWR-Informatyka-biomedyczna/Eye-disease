@@ -75,6 +75,7 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                 self.data['train'] = pd.concat([self.data['train'], self.data['val']])
             self.data['test'] = df[df[self.split_name] == self.test_split_name]
         
+        self.data['train'] = self.data['train'].reset_index(drop=True)
         skf = StratifiedKFold(n_splits=self.k_folds)
         self.fold_data = {"train": [], "val": []}
         label_encoder = LabelEncoder()

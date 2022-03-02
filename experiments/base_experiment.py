@@ -37,7 +37,7 @@ TRAIN_SPLIT_NAME = 'pretrain'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
 #MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/RegNetY3_2gf/0.0001_radam/RegNetY3_2gf-v1.ckpt'
-MODEL_PATH = ""
+MODEL_PATH = None
 k_folds = 5
 n_runs = 1
 
@@ -150,22 +150,22 @@ def main():
                 )
                 run_metrics.append(fold_metrics)
             
-            cross_val_test_score = train_test(
-                    model=model,
-                    datamodule=data_module,
-                    max_epochs=MAX_EPOCHS,
-                    num_classes=NUM_CLASSES,
-                    gpus=GPUS,
-                    lr=LR,
-                    callbacks=callbacks,
-                    logger=logger,
-                    weights=weights,
-                    optimizer=optimizer,
-                    lr_scheduler=lr_scheduler,
-                    test_only=True
-                )
+            if not PRETRAINING:
+                cross_val_test_score = train_test(
+                        model=model,
+                        datamodule=data_module,
+                        max_epochs=MAX_EPOCHS,
+                        num_classes=NUM_CLASSES,
+                        gpus=GPUS,
+                        lr=LR,
+                        callbacks=callbacks,
+                        logger=logger,
+                        weights=weights,
+                        optimizer=optimizer,
+                        lr_scheduler=lr_scheduler,
+                        test_only=True
+                    )
             
-            # TODO: Sprawdzić czy WandBLogger też ma metodę log_metrics, cz jakąś inną
             logger.log_metrics(cross_val_test_score)
             cross_val_metrics = mean_metrics(metrics=run_metrics, prefix="cross", sep="_")
             logger.log_metrics(cross_val_metrics)

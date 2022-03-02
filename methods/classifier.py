@@ -54,7 +54,6 @@ class Classifier(pl.LightningModule):
             self.metrics[key][self.MEAN_METRICS] = {
                 "sensitivity_mean": [],
                 "specificity_mean": [],
-                "precision_mean": [],
                 "roc_auc_mean": [],
             }
             f1_funcs = []
@@ -131,22 +130,9 @@ class Classifier(pl.LightningModule):
         all_targets = []
         for output in self.dicts_to_log:
             for pred in output['pred']:
-                all_preds.append(pred)
+                all_preds.append(pred.cpu())
             for target in output['target']:
-                all_targets.append(target)
-        all_preds = torch.stack(all_preds)
-        all_targets = torch.stack(all_targets)
-        self._calculate_score(all_preds, all_targets, split='val', on_step=False, on_epoch=True)
-        self.dicts_to_log = []
-
-    def validation_epoch_end(self, validation_outputs):
-        all_preds = []
-        all_targets = []
-        for output in self.dicts_to_log:
-            for pred in output['pred']:
-                all_preds.append(pred)
-            for target in output['target']:
-                all_targets.append(target)
+                all_targets.append(target.cpu())
         all_preds = torch.stack(all_preds)
         all_targets = torch.stack(all_targets)
         self._calculate_score(all_preds, all_targets, split='val', on_step=False, on_epoch=True)
@@ -170,9 +156,9 @@ class Classifier(pl.LightningModule):
         all_targets = []
         for output in self.test_dicts:
             for pred in output['pred']:
-                all_preds.append(pred)
+                all_preds.append(pred.cpu())
             for target in output['target']:
-                all_targets.append(target)
+                all_targets.append(target.cpu())
         all_preds = torch.stack(all_preds)
         all_targets = torch.stack(all_targets)
         self._calculate_score(all_preds, all_targets, split='test', on_step=False, on_epoch=True)
@@ -207,7 +193,7 @@ class Classifier(pl.LightningModule):
         """
         self.score = {}
         self.test_score = {}
-        output = torch.softmax(y_pred, dim=1).cuda()
+        output = torch.softmax(y_pred, dim=1)
         for metric_name, metric in self.metrics[split].items():
             if metric_name != self.MEAN_METRICS:
                 self.score[f'{split}_{metric_name}'] = metric(output, y_true)
