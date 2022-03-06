@@ -16,10 +16,10 @@ class VGG11(BaseModel):
         self.input_size = (224, 224)
         
     def set_last_layer(self, layer: torch.nn.Linear):
-        self._feature_extractor.classifier = layer
+        self._feature_extractor.classifier[6] = layer
     
     def get_last_layer(self):
-        return self._feature_extractor.classifier
+        return self._feature_extractor.classifier[6]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -36,10 +36,10 @@ class VGG13(BaseModel):
         self.input_size = (224, 224)
         
     def set_last_layer(self, layer: torch.nn.Linear):
-        self._feature_extractor.classifier = layer
+        self._feature_extractor.classifier[6] = layer
     
     def get_last_layer(self):
-        return self._feature_extractor.classifier
+        return self._feature_extractor.classifier[6]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -56,10 +56,10 @@ class VGG16(BaseModel):
         self.input_size = (224, 224)
 
     def set_last_layer(self, layer: torch.nn.Linear):
-        self._feature_extractor.classifier = layer
+        self._feature_extractor.classifier[6] = layer
 
     def get_last_layer(self):
-        return self._feature_extractor.classifier
+        return self._feature_extractor.classifier[6]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])
@@ -76,10 +76,10 @@ class VGG19(BaseModel):
         self.input_size = (224, 224)
         
     def set_last_layer(self, layer: torch.nn.Linear):
-        self._feature_extractor.classifier = layer
+        self._feature_extractor.classifier[6] = layer
     
     def get_last_layer(self):
-        return self._feature_extractor.classifier
+        return self._feature_extractor.classifier[6]
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         out = self._feature_extractor(x['input'])

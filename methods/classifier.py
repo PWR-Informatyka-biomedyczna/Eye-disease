@@ -2,6 +2,7 @@ from typing import NoReturn, Dict
 from functools import partial
 
 import torch
+import numpy as np
 from torch import nn
 import pytorch_lightning as pl
 from torchmetrics.functional import accuracy, f1
@@ -40,6 +41,7 @@ class Classifier(pl.LightningModule):
         self.model = model
         # metrics config
         self.metrics = {}
+        self.MEAN_METRICS = "mean_metrics"
         for key in ['val', 'test']:
             f1_micro = partial(f1, num_classes=num_classes)
             f1_macro = partial(f1, num_classes=num_classes, average='macro')
@@ -48,21 +50,37 @@ class Classifier(pl.LightningModule):
                 'accuracy': accuracy,
                 'f1_micro': f1_micro,
                 'f1_macro': f1_macro,
-                #'roc_auc_ovr': roc_auc_ovr
+            }
+            self.metrics[key][self.MEAN_METRICS] = {
+                "sensitivity_mean": [],
+                "specificity_mean": [],
+                "roc_auc_mean": [],
             }
             f1_funcs = []
             sensitivity_funcs = []
             specificity_funcs = []
+            roc_auc_funcs = []
             for cls in range(num_classes):
                 f1_funcs.append(partial(f1_score, current_class=cls))
                 sensitivity_funcs.append(partial(sensitivity, current_class=cls))
                 specificity_funcs.append(partial(specificity, current_class=cls))
+                roc_auc_funcs.append(partial(roc_auc, current_class=cls))
 
-            for f1_fun, sens, spec, cls in zip(f1_funcs, sensitivity_funcs, specificity_funcs, range(num_classes)):
-                self.metrics[key][f'f1_class_{cls}'] = f1_fun
-                self.metrics[key][f'sensitivity_class_{cls}'] = sens
-                self.metrics[key][f'specificity_class_{cls}'] = spec
+            for f1_fun, sens, spec, roc_auc_fun, cls in zip(f1_funcs, sensitivity_funcs, specificity_funcs, roc_auc_funcs, range(num_classes)):
+                f1_key = f"f1_class_{cls}"
+                sensitivity_key = f"sensitivity_class_{cls}"
+                specificity_key = f"specificity_class_{cls}"
+                roc_auc_key = f"roc_auc_class_{cls}"
+                self.metrics[key][f1_key] = f1_fun
+                self.metrics[key][sensitivity_key] = sens
+                self.metrics[key][specificity_key] = spec
+                self.metrics[key][roc_auc_key] = roc_auc_fun
+                self.metrics[key][self.MEAN_METRICS]["sensitivity_mean"].append(sensitivity_key)
+                self.metrics[key][self.MEAN_METRICS]["specificity_mean"].append(specificity_key)
+                self.metrics[key][self.MEAN_METRICS]["roc_auc_mean"].append(roc_auc_key)
         self.criterion = nn.CrossEntropyLoss(weight=weights)
+        self.dicts_to_log = []
+        self.test_dicts = []
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
@@ -103,9 +121,23 @@ class Classifier(pl.LightningModule):
         y_pred = self.model(batch)
         loss = self.criterion(y_pred, batch['target'])
         self.log('val_loss', loss, on_epoch=True, prog_bar=True)
-        self._calculate_score(y_pred, batch['target'], split='val', on_step=False, on_epoch=True)
+        dict_to_log = {'pred': y_pred, 'target': batch['target']}
+        self.dicts_to_log.append(dict_to_log)
         return loss
-
+    
+    def validation_epoch_end(self, validation_outputs):
+        all_preds = []
+        all_targets = []
+        for output in self.dicts_to_log:
+            for pred in output['pred']:
+                all_preds.append(pred.cpu())
+            for target in output['target']:
+                all_targets.append(target.cpu())
+        all_preds = torch.stack(all_preds)
+        all_targets = torch.stack(all_targets)
+        self._calculate_score(all_preds, all_targets, split='val', on_step=False, on_epoch=True)
+        self.dicts_to_log = []
+        
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> None:
         """
         Test step of model
@@ -116,7 +148,21 @@ class Classifier(pl.LightningModule):
         :return:
         """
         y_pred = self.model(batch)
-        self._calculate_score(y_pred, batch['target'], split='test', on_step=False, on_epoch=True)
+        dict_to_log = {'pred': y_pred, 'target': batch['target']}
+        self.test_dicts.append(dict_to_log)
+        
+    def test_epoch_end(self, test_outputs):
+        all_preds = []
+        all_targets = []
+        for output in self.test_dicts:
+            for pred in output['pred']:
+                all_preds.append(pred.cpu())
+            for target in output['target']:
+                all_targets.append(target.cpu())
+        all_preds = torch.stack(all_preds)
+        all_targets = torch.stack(all_targets)
+        self._calculate_score(all_preds, all_targets, split='test', on_step=False, on_epoch=True)
+        self.test_dicts = []
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """
@@ -145,8 +191,24 @@ class Classifier(pl.LightningModule):
             are metrics calculated on epoch
         :return:
         """
-        score = {}
-        output = torch.softmax(y_pred, dim=1).cuda()
+        self.score = {}
+        self.test_score = {}
+        output = torch.softmax(y_pred, dim=1)
         for metric_name, metric in self.metrics[split].items():
-            score[f'{split}_{metric_name}'] = metric(output, y_true)
-        self.log_dict(score, on_step=on_step, on_epoch=on_epoch)
+            if metric_name != self.MEAN_METRICS:
+                self.score[f'{split}_{metric_name}'] = metric(output, y_true)
+        
+        for metric_name, metrics in self.metrics[split][self.MEAN_METRICS].items():
+            to_mean = []
+            for metric in metrics:
+                metric_to_mean = self.score[f"{split}_{metric}"]
+                if isinstance(metric_to_mean, torch.Tensor):
+                    to_mean.append(metric_to_mean.item())
+                else:
+                    to_mean.append(metric_to_mean)
+            self.score[f"{split}_{metric_name}"] = np.mean(to_mean)
+        self.log_dict(self.score, on_step=on_step, on_epoch=on_epoch)
+        if split == "val":
+            self.val_score = self.score
+        elif split == "test":
+            self.test_score = self.score
