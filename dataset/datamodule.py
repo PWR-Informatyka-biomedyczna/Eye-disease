@@ -9,6 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 
 from dataset.dataset import EyeDiseaseData
 from dataset.resamplers import identity_resampler
+from sklearn.model_selection import train_test_split
 
 
 class EyeDiseaseDataModule(pl.LightningDataModule):
@@ -30,7 +31,8 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
                  resampler: Callable = identity_resampler,
                  pretraining: bool = False,
                  binary=False,
-                 k_folds: int = 10
+                 k_folds: int = 10,
+                 train_size: float = 0.8
                  ):
         super(EyeDiseaseDataModule, self).__init__()
         self.resampler: Callable = resampler
@@ -58,11 +60,17 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
         self.data: Dict[str, pd.DataFrame] = {}
         self.k_folds = k_folds
         self.fold_idx = 0
+        self.train_size = train_size
 
     def prepare_data(self) -> None:
         df = self.resampler(pd.read_csv(self.csv_path))
-        self.data['train'] = df[df[self.split_name] == self.train_split_name]
-        self.data['val'] = df[df[self.split_name] == self.val_split_name]
+        if self.train_split_name == 'pretrain':
+            pretrain_df = df[df[self.split_name] == self.train_split_name]
+            self.data['train'], self.data['val'] = train_test_split(pretrain_df, train_size=self.train_size,
+                                                                    stratify=pretrain_df[self.target_name])
+        else:
+            self.data['train'] = df[df[self.split_name] == self.train_split_name]
+            self.data['val'] = df[df[self.split_name] == self.val_split_name]
         self.data['test'] = df[df[self.split_name] == self.test_split_name]
         
     def prepare_data_kfold(self) -> None:

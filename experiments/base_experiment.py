@@ -4,26 +4,28 @@ from pathlib import Path
 
 import cv2
 import torch
+import timm
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 
-from experiments.common import seed_all, freeze, unfreeze, get_train_params_count, load_lightning_model
+from experiments.common import seed_all, freeze, unfreeze, get_train_params_count, load_lightning_model, layer_decay
 from utils.metrics import mean_metrics
+from utils.callbacks import EMA
 from dataset import EyeDiseaseDataModule, resamplers
 from dataset.transforms import test_val_transforms, train_transforms
-from methods import RegNetY3_2gf
+from methods import RegNetY3_2gf, ResNet50Model, ConvNextTiny
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
 from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal, identity_resampler
 
 SEED = 0
-PROJECT_NAME = 'EyeDiseaseExperiments'
+PROJECT_NAME = 'EyeDiseaseExperimentsRemastered'
 NUM_CLASSES = 2
-LR = 3e-4
-OPTIM = 'radam'
-BATCH_SIZE = 24
-MAX_EPOCHS = 200
+LR = 1e-4
+OPTIM = 'adamw'
+BATCH_SIZE = 16
+MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
 PATIENCE = 5
@@ -38,21 +40,32 @@ VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
 #MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/RegNetY3_2gf/0.0001_radam/RegNetY3_2gf-v1.ckpt'
 MODEL_PATH = None
-k_folds = 5
-n_runs = 1
+cross_val = False
+cross_val_test = False
+k_folds = 10
+n_runs = 5
+LABEL_SMOOTHING = 0.2
+LAYER_DECAY = 0.9
+EMA_DECAY = 0.9999
+t_initial = 30
+eta_min = 1e-5
+warmup_lr_init = 1e-4
+warmup_epochs = 5
+cycle_mul = 1
+cycle_decay = 0.1
 
-models = [RegNetY3_2gf]
+models = [RegNetY3_2gf, ConvNextTiny, ResNet50Model]
 
-def init_optimizer(model, optimizer, lr=1e-4):
+def init_optimizer(params, optimizer, lr=1e-4):
     if optimizer == 'sgd':
-        return torch.optim.SGD(model.parameters(), lr=lr, momentum=4e-3, dampening=0, nesterov=True, weight_decay=1e-6)
+        return torch.optim.SGD(params, lr=lr, momentum=4e-3, dampening=0, nesterov=True, weight_decay=1e-6)
     if optimizer == 'adamw':
-        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-7, amsgrad=True)
+        return torch.optim.AdamW(params, lr=lr, weight_decay=1e-3, amsgrad=True)
     if optimizer == 'nadam':
-        return torch.optim.NAdam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=1e-5, 
+        return torch.optim.NAdam(params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-5,
                                  momentum_decay=4e-3)
     if optimizer == 'radam':
-        return torch.optim.RAdam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=1e-5)
+        return torch.optim.RAdam(params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-5)
     
     return None
 
@@ -61,25 +74,36 @@ def main():
     seed_all(SEED)
     #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
     for model_class in models:
+        run_id = hashlib.md5(
+            bytes(str(time.time()), encoding='utf-8')
+        ).hexdigest()
         metrics = []
-        for _ in range(n_runs):
+        for i in range(n_runs):
             run_metrics = []
             model = model_class(NUM_CLASSES)
             if MODEL_PATH is not None:
                 model = load_lightning_model(model, LR, NUM_CLASSES, MODEL_PATH)
+            # TODO: Dostosowac wagi zgodnie z wzorem (w_i = sqrt(|class_i| / Max(|classes|)))
             weights = torch.Tensor([1, 2])
-            unfreeze(model, get_train_params_count(model))
-            freeze(model, get_train_params_count(model) * (1/2))
-            optimizer = init_optimizer(model, OPTIM, lr=LR)
-            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20, eta_min=1e-5)
+            parameters = layer_decay(model, LR, LAYER_DECAY)
+            optimizer = init_optimizer(parameters, OPTIM, lr=LR)
+            lr_scheduler = timm.scheduler.CosineLRScheduler(
+                optimizer=optimizer,
+                t_initial=t_initial,
+                lr_min=eta_min,
+                warmup_lr_init=warmup_lr_init,
+                warmup_t=warmup_epochs,
+                cycle_mul=cycle_mul,
+                cycle_decay=cycle_decay,
+            )
+            #lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20, eta_min=1e-5)
             
-            run_id = hashlib.md5(
-                    bytes(str(time.time()), encoding='utf-8')
-                ).hexdigest()
-            checkpoints_run_dir = CHECKPOINTS_DIR / run_id
+            experiment_id = run_id + '_' + str(i)
+            checkpoints_run_dir = CHECKPOINTS_DIR / experiment_id
             
             Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
-            
+
+            # TODO: Dostosować sciezke po wykonaniu splitu
             data_module = EyeDiseaseDataModule(
                 csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_corrected_data_splits.csv',
                 train_split_name=TRAIN_SPLIT_NAME,
@@ -98,7 +122,10 @@ def main():
                 pretraining=PRETRAINING,
                 binary=BINARY
             )
-            data_module.prepare_data_kfold()
+            if cross_val:
+                data_module.prepare_data_kfold()
+            else:
+                data_module.prepare_data()
 
             hparams = {
                 'dataset': type(data_module).__name__,
@@ -108,7 +135,7 @@ def main():
                 'optimizer': type(optimizer).__name__,
                 'resampler': RESAMPLER.__name__,
                 'num_classes': NUM_CLASSES,
-                'run_id': run_id
+                'run_id': experiment_id
             }
 
             logger = WandbLogger(
@@ -133,7 +160,30 @@ def main():
                     save_weights_only=True
                 )
             ]
-            for _ in range(k_folds):
+            if EMA_DECAY > 0:
+                callbacks.append(
+                    EMA(EMA_DECAY)
+                )
+            if cross_val:
+                for _ in range(k_folds):
+                    fold_metrics = train_test(
+                        model=model,
+                        datamodule=data_module,
+                        max_epochs=MAX_EPOCHS,
+                        num_classes=NUM_CLASSES,
+                        gpus=GPUS,
+                        lr=LR,
+                        callbacks=callbacks,
+                        logger=logger,
+                        weights=weights,
+                        optimizer=optimizer,
+                        lr_scheduler=lr_scheduler,
+                        test_only=TEST_ONLY,
+                        cross_val=cross_val,
+                        label_smoothing=LABEL_SMOOTHING
+                    )
+                    run_metrics.append(fold_metrics)
+            else:
                 fold_metrics = train_test(
                     model=model,
                     datamodule=data_module,
@@ -146,11 +196,13 @@ def main():
                     weights=weights,
                     optimizer=optimizer,
                     lr_scheduler=lr_scheduler,
-                    test_only=TEST_ONLY
+                    test_only=TEST_ONLY,
+                    cross_val=cross_val,
+                    label_smoothing=LABEL_SMOOTHING
                 )
                 run_metrics.append(fold_metrics)
-            
-            if not PRETRAINING:
+
+            if cross_val_test:
                 cross_val_test_score = train_test(
                         model=model,
                         datamodule=data_module,
@@ -163,28 +215,35 @@ def main():
                         weights=weights,
                         optimizer=optimizer,
                         lr_scheduler=lr_scheduler,
-                        test_only=True
+                        test_only=True,
+                        label_smoothing=LABEL_SMOOTHING
                     )
-            
-            logger.log_metrics(cross_val_test_score)
-            cross_val_metrics = mean_metrics(metrics=run_metrics, prefix="cross", sep="_")
-            logger.log_metrics(cross_val_metrics)
-            logger.experiment.finish()
-            all_run_metrics = cross_val_metrics
-            all_run_metrics.update(cross_val_test_score)
+                logger.log_metrics(cross_val_test_score)
+            if cross_val:
+                cross_val_metrics = mean_metrics(metrics=run_metrics, prefix="cross", sep="_")
+                logger.log_metrics(cross_val_metrics)
+                logger.experiment.finish()
+                all_run_metrics = cross_val_metrics
+                if cross_val_test:
+                    all_run_metrics.update(cross_val_test_score)
+            else:
+                all_run_metrics = run_metrics[0]
+                logger.log_metrics(all_run_metrics)
+                logger.experiment.finish()
             metrics.append(all_run_metrics)
-            
-        avg_metrics = mean_metrics(metrics=metrics, prefix="avg", sep="_")
-        logger = WandbLogger(
-                save_dir=LOGS_DIR,
-                config=hparams,
-                project=PROJECT_NAME,
-                log_model=False,
-                entity=ENTITY_NAME
-            )
-        logger.log_metrics(avg_metrics)
-        logger.log_hyperparams({"Path": run_id})
-        logger.experiment.finish()
+
+        if n_runs > 1:
+            avg_metrics = mean_metrics(metrics=metrics, prefix="avg", sep="_")
+            logger = WandbLogger(
+                    save_dir=LOGS_DIR,
+                    config=hparams,
+                    project=PROJECT_NAME,
+                    log_model=False,
+                    entity=ENTITY_NAME
+                )
+            logger.log_metrics(avg_metrics)
+            logger.log_hyperparams({"Path": run_id})
+            logger.experiment.finish()
 
 
 if __name__ == '__main__':

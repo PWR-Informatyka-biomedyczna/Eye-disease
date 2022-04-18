@@ -1,1 +1,2 @@
 from utils.callbacks.image_prediction_callback import ImagePredictionCallback
+from utils.callbacks.EMA import EMA

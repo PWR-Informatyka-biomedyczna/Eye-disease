@@ -8,8 +8,8 @@ CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_correct
 NEW_CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_corrected_data_splits.csv'
 PRETRAIN_CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/pretrain_corrected_data_splits.csv'
 SPLIT_RATIOS = {
-    'train_dev': 0.85,
-    'train': 0.85,
+    'train_dev': 0.80,
+    'train': 0.80,
 }
 LABEL_COLUMN_NAME = 'Label'
 SPLIT_COLUMN_NAME = 'Split'
@@ -20,7 +20,7 @@ TEST_SPLIT_NAME = 'test'
 PRETRAIN_SPLIT_NAME = 'pretrain'
 
 def split_data(df: pd.DataFrame, train_ratio: float, stratify: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    df_train, df_test = train_test_split(df, train_size = train_ratio, stratify=df[stratify])
+    df_train, df_test = train_test_split(df, train_size=train_ratio, stratify=df[stratify])
     return df_train, df_test
 
 
@@ -153,7 +153,9 @@ New dataset size: {len(dataset)}
 
 
 def train_val_test_pretrain_split(classes=[0, 1, 2 ,3], pretrain_classes=[0, 3]):
+    df_very_old = pd.read_csv(CSV_PATH)
     df_old = pd.read_csv(CSV_PATH)
+    df_old, test_df = train_test_split(df_old, train_size=SPLIT_RATIOS['train'])
     pre_train_dfs = {}
     train_dfs = {}
     class_counts = get_class_counts(df_old, [0, 3, 1, 2])
@@ -167,16 +169,24 @@ def train_val_test_pretrain_split(classes=[0, 1, 2 ,3], pretrain_classes=[0, 3])
     for class_ in train_val_test_classes:
         train_dfs[class_] = df_old[df_old[LABEL_COLUMN_NAME] == class_]
     df_to_train_test_split = pd.concat(train_dfs.values())
-    df_split = create_train_val_test_split(df_to_train_test_split)
+    df_train, df_val = split_data(
+        df_to_train_test_split,
+        SPLIT_RATIOS['train_dev'],
+        stratify=LABEL_COLUMN_NAME
+    )
+    df_train[SPLIT_COLUMN_NAME] = TRAIN_SPLIT_NAME
+    df_val[SPLIT_COLUMN_NAME] = DEV_SPLIT_NAME
+    test_df[SPLIT_COLUMN_NAME] = TEST_SPLIT_NAME
+    #df_split = create_train_val_test_split(df_to_train_test_split)
     
     df_pretrain = pd.concat(pre_train_dfs.values())
     df_pretrain[SPLIT_COLUMN_NAME] = PRETRAIN_SPLIT_NAME
-    dataset = pd.concat([df_split, df_pretrain])
+    dataset = pd.concat([df_train, df_val, test_df, df_pretrain])
     dataset.to_csv(PRETRAIN_CSV_PATH)
     print(f"""
 Splits created:
 ======================================================
-Original dataset size: {len(df_old)}
+Original dataset size: {len(df_very_old)}
 Splits ratios: {dataset.groupby([SPLIT_COLUMN_NAME, 'Label']).count()}
 =======================================================
 New dataset size: {len(dataset)}
