@@ -4,9 +4,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
-CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_corrected_data.csv'
-NEW_CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/resized_corrected_data_splits.csv'
-PRETRAIN_CSV_PATH = '/media/data/adam_chlopowiec/eye_image_classification/pretrain_corrected_data_splits.csv'
+CSV_PATH = r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\pretrain_corrected_data_splits.csv'
+NEW_CSV_PATH = r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\pretrain_no_eyepacs_corrected_data_splits.csv'
+PRETRAIN_CSV_PATH = r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\pretrain_no_eyepacs_corrected_data_splits.csv'
 SPLIT_RATIOS = {
     'train_dev': 0.85,
     'train': 0.85,
@@ -106,6 +106,11 @@ def get_pretrain_ratios(class_counts, pretrain_counts):
     return class_ratios
 
 
+def remove_eyepacs(df):
+    df = df[df['Dataset'] != 9]
+    return df
+
+
 def train_val_test_pretrain_preval_pretest_split(classes=[0, 1, 2 ,3], pretrain_classes=[0, 3]):
     df_old = pd.read_csv(CSV_PATH)
     pre_train_dfs = {}
@@ -154,6 +159,8 @@ New dataset size: {len(dataset)}
 
 def train_val_test_pretrain_split(classes=[0, 1, 2 ,3], pretrain_classes=[0, 3]):
     df_old = pd.read_csv(CSV_PATH)
+    df_old = df_old.drop(columns=[SPLIT_COLUMN_NAME])
+    df_old = remove_eyepacs(df_old)
     pre_train_dfs = {}
     train_dfs = {}
     class_counts = get_class_counts(df_old, [0, 3, 1, 2])
