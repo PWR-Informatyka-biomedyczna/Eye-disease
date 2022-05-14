@@ -8,3 +8,4 @@ from methods.resnet import ResNet18Model, ResNet34Model, ResNet50Model, ResNet10
 from methods.resnext import ResNext50, ResNext101
 from methods.vgg import VGG16
 from methods.wideresnet import WideResNet50, WideResNet101
+from methods.convnext import ConvNextTiny

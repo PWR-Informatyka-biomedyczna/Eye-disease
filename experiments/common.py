@@ -54,3 +54,29 @@ def unfreeze(model, n_params):
         if start <= i and i <= n:
             param.requires_grad = True
         i += 1
+
+
+def layer_decay(model, lr, lr_decay):
+    layer_names = []
+    for _, (name, _) in enumerate(model.named_parameters()):
+        layer_names.append(name)
+    lr_mult = lr_decay
+    parameters = []
+    layer_names.reverse()
+    prev_group_name = layer_names[0].split(".")[-2]
+    for _, name in enumerate(layer_names):
+        cur_group_name = name.split(".")[-2]
+        if cur_group_name != prev_group_name:
+            lr *= lr_mult
+        prev_group_name = cur_group_name
+        parameters += [
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if n == name and p.requires_grad
+                ],
+                "lr": lr,
+            }
+        ]
+    return parameters

@@ -26,7 +26,8 @@ def train_test(
         weights: torch.Tensor = None,
         lr_scheduler: torch.optim.lr_scheduler = None,
         test_only: bool = False,
-        cross_val: bool = True
+        cross_val: bool = True,
+        label_smoothing: float = 0.0
         ):
     """
     Base experiment function
@@ -49,7 +50,8 @@ def train_test(
             lr=lr,
             optimizer=optimizer,
             weights=weights,
-            lr_scheduler=lr_scheduler
+            lr_scheduler=lr_scheduler,
+            label_smoothing=label_smoothing
         )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
@@ -78,7 +80,4 @@ def train_test(
             train_dataloaders=datamodule.train_dataloader(),
             val_dataloaders=datamodule.val_dataloader()
         )
-        trainer.test(
-            test_dataloaders=datamodule.test_dataloader()
-        )
-        return module.test_score
+        return module.val_score

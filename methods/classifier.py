@@ -19,7 +19,8 @@ class Classifier(pl.LightningModule):
                  lr: float,
                  optimizer: torch.optim.Optimizer = torch.optim.Adam,
                  weights: torch.Tensor = None,
-                 lr_scheduler: torch.optim.lr_scheduler = None
+                 lr_scheduler: torch.optim.lr_scheduler = None,
+                 label_smoothing: float = 0.0
                  ):
         """
         Base class for classifying task
@@ -78,7 +79,8 @@ class Classifier(pl.LightningModule):
                 self.metrics[key][self.MEAN_METRICS]["sensitivity_mean"].append(sensitivity_key)
                 self.metrics[key][self.MEAN_METRICS]["specificity_mean"].append(specificity_key)
                 self.metrics[key][self.MEAN_METRICS]["roc_auc_mean"].append(roc_auc_key)
-        self.criterion = nn.CrossEntropyLoss(weight=weights)
+        self.label_smoothing = label_smoothing
+        self.criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=label_smoothing)
         self.dicts_to_log = []
         self.test_dicts = []
 
