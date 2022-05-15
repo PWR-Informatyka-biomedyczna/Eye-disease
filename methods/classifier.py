@@ -5,7 +5,8 @@ import torch
 import numpy as np
 from torch import nn
 import pytorch_lightning as pl
-from torchmetrics.functional import accuracy, f1
+from torchmetrics.functional import accuracy
+from torchmetrics.functional import f1_score as f1
 from utils.metrics import f1_score, sensitivity, specificity, roc_auc
 
 from methods.base_model import BaseModel

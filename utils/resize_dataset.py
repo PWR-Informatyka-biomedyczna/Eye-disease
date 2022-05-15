@@ -17,7 +17,7 @@ def make_dirs(paths):
 def change_dirs(paths):
     new_paths = []
     for path in paths:
-        new_path = path.replace("/eye_image_classification/data/", "/eye_image_classification/full_data_resized/")
+        new_path = path.replace("/home/adam_chlopowiec/data/eye_image_classification/full_data_resized/", "../input/datasetcorrected/full_data_resized")
         new_paths.append(new_path)
     return new_paths
 
@@ -28,7 +28,7 @@ def transform_copy_img(path, new_path):
     img = Image.fromarray(img)
     img.save(new_path)
 
-data = pd.read_csv('corrected_collected_data.csv')
+data = pd.read_csv('pretrain_corrected_data_splits.csv')
 paths = data['Path']
 
 new_paths = change_dirs(paths)
@@ -37,4 +37,4 @@ for path, new_path in tqdm.tqdm(zip(paths, new_paths)):
     transform_copy_img(path, new_path)
 
 data['Path'] = new_paths
-data.to_csv('resized_corrected_data.csv')
+data.to_csv('kaggle_pretrain_corrected_data_splits.csv')

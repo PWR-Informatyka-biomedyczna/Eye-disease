@@ -2,7 +2,7 @@ from typing import Dict
 import torch
 import timm
 from torch import nn
-from torch_model.methods.base_model import BaseModel
+from methods.base_model import BaseModel
 
 class ConvNextTiny(BaseModel):
     def __init__(self, num_classes: int):

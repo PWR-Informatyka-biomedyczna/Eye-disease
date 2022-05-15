@@ -131,17 +131,31 @@ class EyeDiseaseDataModule(pl.LightningDataModule):
         Prepares and returns train dataloader
         :return:
         """
-        return DataLoader(
-            EyeDiseaseData(self.data['train'],
-                           self.train_transforms,
-                           self.image_path_name,
-                           self.target_name,
-                           pretraining=self.pretraining,
-                           binary=self.binary),
-            shuffle=self.shuffle_train,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers
-        )
+        if self.train_split_name == "pretrain":
+            return DataLoader(
+                EyeDiseaseData(self.data['train'],
+                            self.train_transforms,
+                            self.image_path_name,
+                            self.target_name,
+                            pretraining=self.pretraining,
+                            binary=self.binary,
+                            unlabeled=True),
+                shuffle=self.shuffle_train,
+                batch_size=self.batch_size,
+                num_workers=self.num_workers
+            )
+        else:
+            return DataLoader(
+                EyeDiseaseData(self.data['train'],
+                            self.train_transforms,
+                            self.image_path_name,
+                            self.target_name,
+                            pretraining=self.pretraining,
+                            binary=self.binary),
+                shuffle=self.shuffle_train,
+                batch_size=self.batch_size,
+                num_workers=self.num_workers
+            )
 
     def val_dataloader(self) -> DataLoader:
         """
