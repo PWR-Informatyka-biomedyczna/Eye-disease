@@ -57,7 +57,7 @@ class RegNetY400MF(BaseModel):
         self.input_size = (224, 224)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        out = self._feature_extractor(x['input'])
+        out = self._feature_extractor(x)
         return out
     
     def set_last_layer(self, layer: torch.nn.Linear):
@@ -177,7 +177,7 @@ class RegNetY3_2gf(BaseModel):
         self.input_size = (224, 224)
 
     def forward(self, x: Dict[str, torch.Tensor]) -> torch.Tensor:
-        out = self._feature_extractor(x['input'])
+        out = self._feature_extractor(x)
         return out
     
     def set_last_layer(self, layer: torch.nn.Linear):
