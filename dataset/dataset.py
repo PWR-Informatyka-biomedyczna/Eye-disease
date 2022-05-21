@@ -53,8 +53,8 @@ class EyeDiseaseData(Dataset):
             if label > 1:
                 label = 1
         
-        # return {'input': image, 'target': label}
-        if self.unlabeled:
-            return (image, img_aug), label
-        else:
-            return image, label
+        return {'input': image, 'target': label}
+        # if self.unlabeled:
+        #     return (image, img_aug), label
+        # else:
+        #     return image, label

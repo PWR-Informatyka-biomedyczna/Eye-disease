@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import torch
 import timm
+from timm.scheduler.cosine_lr import CosineLRScheduler
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -18,13 +19,14 @@ from methods import RegNetY3_2gf, ResNet50Model, ConvNextTiny
 from settings import LOGS_DIR, CHECKPOINTS_DIR, PROJECT_DIR
 from training import train_test
 from dataset.resamplers import threshold_to_glaucoma_with_ros, binary_thresh_to_20k_equal, identity_resampler
+from adamp import AdamP
 
-SEED = 0
+SEED = 42
 PROJECT_NAME = 'EyeDiseaseExperimentsRemastered'
-NUM_CLASSES = 2
+NUM_CLASSES = 4
 LR = 1e-4
-OPTIM = 'adamw'
-BATCH_SIZE = 16
+OPTIM = 'adamp'
+BATCH_SIZE = 32
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -33,9 +35,9 @@ GPUS = -1
 ENTITY_NAME = 'kn-bmi'
 RESAMPLER = identity_resampler
 TEST_ONLY = False
-PRETRAINING = True
+PRETRAINING = False
 BINARY = False
-TRAIN_SPLIT_NAME = 'pretrain'
+TRAIN_SPLIT_NAME = 'train'
 VAL_SPLIT_NAME = 'val'
 TEST_SPLIT_NAME = 'test'
 #MODEL_PATH = '/home/adam_chlopowiec/data/eye_image_classification/Eye-disease/checkpoints/pretraining/RegNetY3_2gf/0.0001_radam/RegNetY3_2gf-v1.ckpt'
@@ -44,17 +46,17 @@ cross_val = False
 cross_val_test = False
 k_folds = 10
 n_runs = 5
-LABEL_SMOOTHING = 0.2
-LAYER_DECAY = 0.9
-EMA_DECAY = 0.9999
+LABEL_SMOOTHING = 0.0
+LAYER_DECAY = 0.4
+EMA_DECAY = 0.0
 t_initial = 30
-eta_min = 1e-5
+eta_min = 1e-7
 warmup_lr_init = 1e-4
 warmup_epochs = 5
 cycle_mul = 1
 cycle_decay = 0.1
 
-models = [RegNetY3_2gf, ConvNextTiny, ResNet50Model]
+models = [RegNetY3_2gf]
 
 def init_optimizer(params, optimizer, lr=1e-4):
     if optimizer == 'sgd':
@@ -66,6 +68,9 @@ def init_optimizer(params, optimizer, lr=1e-4):
                                  momentum_decay=4e-3)
     if optimizer == 'radam':
         return torch.optim.RAdam(params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-5)
+    
+    if optimizer == "adamp":
+        return AdamP(params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2, nesterov=True)
     
     return None
 
@@ -84,10 +89,10 @@ def main():
             if MODEL_PATH is not None:
                 model = load_lightning_model(model, LR, NUM_CLASSES, MODEL_PATH)
             # TODO: Dostosowac wagi zgodnie z wzorem (w_i = sqrt(|class_i| / Max(|classes|)))
-            weights = torch.Tensor([1, 2])
+            weights = torch.Tensor([0.5, 1, 1, 1])
             parameters = layer_decay(model, LR, LAYER_DECAY)
             optimizer = init_optimizer(parameters, OPTIM, lr=LR)
-            lr_scheduler = timm.scheduler.CosineLRScheduler(
+            lr_scheduler = CosineLRScheduler(
                 optimizer=optimizer,
                 t_initial=t_initial,
                 lr_min=eta_min,
@@ -105,7 +110,7 @@ def main():
 
             # TODO: Dostosować sciezke po wykonaniu splitu
             data_module = EyeDiseaseDataModule(
-                csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_corrected_data_splits.csv',
+                csv_path=r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\data\pretrain_corrected_data_splits_windows.csv',
                 train_split_name=TRAIN_SPLIT_NAME,
                 val_split_name=VAL_SPLIT_NAME,
                 test_split_name=TEST_SPLIT_NAME,
@@ -116,7 +121,7 @@ def main():
                 target_name='Label',
                 split_name='Split',
                 batch_size=BATCH_SIZE,
-                num_workers=12,
+                num_workers=1,
                 shuffle_train=True,
                 resampler=RESAMPLER,
                 pretraining=PRETRAINING,

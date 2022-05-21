@@ -175,7 +175,7 @@ class Classifier(pl.LightningModule):
         if self.optimizer is None:
             self.optimizer = torch.optim.Adam(self.model.parameters(), self.lr)
         if self.lr_scheduler is not None:
-            return [self.optimizer], [self.lr_scheduler]
+            return [self.optimizer], [{"scheduler": self.lr_scheduler, "interval": "epoch"}]
         return self.optimizer
 
     def _calculate_score(self, y_pred: torch.Tensor, y_true: torch.Tensor, split: str, on_step: bool,
@@ -215,3 +215,8 @@ class Classifier(pl.LightningModule):
             self.val_score = self.score
         elif split == "test":
             self.test_score = self.score
+            
+    def lr_scheduler_step(
+            self, scheduler: torch.optim.lr_scheduler._LRScheduler, optimizer_idx, metric
+        ) -> None:
+        scheduler.step(epoch=self.current_epoch)

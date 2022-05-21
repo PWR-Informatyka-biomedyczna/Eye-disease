@@ -1,6 +1,7 @@
 from experiments.common import seed_all
 from typing import *
 import timm
+import pandas as pd
 from timm.scheduler.cosine_lr import CosineLRScheduler
 from collections import OrderedDict
 from functools import partial
@@ -8,8 +9,6 @@ from functools import partial
 import logging
 import time
 import os
-import shutil
-import math
 
 import torch
 from torch import distributed as dist
@@ -29,6 +28,7 @@ from dataset import EyeDiseaseDataModule
 from dataset.transforms import train_transforms, test_val_transforms, mpl_transforms
 from dataset.resamplers import identity_resampler
 from methods import RegNetY3_2gf, RegNetY400MF
+from experiments import layer_wise_learning_rate_decay, save_checkpoint, model_load_state_dict, get_lr, AverageMeter, get_lr_scheduler
 import cv2
 
 logger = logging.getLogger(__name__)
@@ -37,39 +37,44 @@ hyperparams = {
     "project_name": "AIProjectMetaPseudoLabels",
     "entity_name": "kn-bmi",
     "seed": 42,
-    "t_initial": 30,
-    "eta_min": 1e-7,
-    "warmup_lr_init": 1e-5,
+    # "t_initial": 30,
+    # "eta_min": 1e-7,
+    # "warmup_lr_init": 1e-5,
     "warmup_steps": 5000,
-    "cycle_mul": 1,
-    "cycle_decay": 0.1,
+    # "cycle_mul": 1,
+    # "cycle_decay": 0.1,
     "lr": 1e-4,
-    "batch_size": 8,
-    "lr_decay": 0.9,
-    "weight_decay": 1e-2,
+    "batch_size_labeled": 16,
+    "batch_size_unlabeled": 128,
+    "lr_decay": 0.4, # Layer decay should be fine for both student and teacher 
+                     #(probably if applied then with same parameter value to both), but it's up to further consideration
+    "weight_decay": 5e-3,
     "betas": (0.9, 0.999),
     "nesterov": True,
-    "weights": torch.Tensor([0.5, 1, 1, 1]),
+    "weights": torch.Tensor([0.75, 1, 1, 1]),
     "workers": 1,
-    "world_size": 1,
+    "world_size": 1, # World size corresponds to number of processes (usually one per GPU)
     "start_step": 0,
-    "total_steps": 50000,
-    "eval_step": 300,
-    "local_rank": -1,
+    "total_steps": 25000,
+    "eval_step": 1000,
+    "local_rank": -1, # Local rank corresponds to process id within a node (world size / local rank explanation: 
+                      # https://stackoverflow.com/questions/58271635/in-distributed-computing-what-are-world-size-and-rank)
     "gpu": 0,
     "device": torch.device('cuda', 0),
     "amp": True,
     "uda_temperature": 0.8,
-    "threshold": 0.9,
+    "threshold": 0.95,
     "uda_factor": 2.5,
     "uda_steps": 10000,
-    "grad_clip": 0,
-    "ema": False,
+    "grad_clip": 0, # Check it out
+    "ema": False, # May try.
     "best_accuracy": 0.,
     "best_f1_macro": 0.,
+    "best_accuracy_teacher": 0.,
+    "best_f1_macro_teacher": 0.,
     "save_path": r"C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\checkpoints",
     "name": "regnet_y_3.2gf",
-    "finetune_epochs": 5,
+    "finetune_epochs": 10, # Would be cool to get early stopping working here
     "train_split_name": "train",
     "val_split_name": "val",
     "test_split_name": "test",
@@ -82,153 +87,55 @@ hyperparams = {
 }
 
 
-def lr_lambda(current_step, num_warmup_steps, num_training_steps, num_wait_steps, num_cycles):
-    if current_step < num_wait_steps:
-        return 0.0
+def reset_samplers_for_distributed_training(labeled_dataloader, unlabeled_dataloader):
+    labeled_epoch = 0
+    unlabeled_epoch = 0
+    labeled_dataloader.sampler.set_epoch(labeled_epoch)
+    unlabeled_dataloader.sampler.set_epoch(unlabeled_epoch)
 
-    if current_step < num_warmup_steps + num_wait_steps:
-        return float(current_step) / float(max(1, num_warmup_steps + num_wait_steps))
-
-    progress = float(current_step - num_warmup_steps - num_wait_steps) / \
-        float(max(1, num_training_steps - num_warmup_steps - num_wait_steps))
-    return max(0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
-
-def get_cosine_schedule_with_warmup(optimizer,
-                                    num_warmup_steps,
-                                    num_training_steps,
-                                    num_wait_steps=0,
-                                    num_cycles=0.5,
-                                    last_epoch=-1):
+class Loops:
+    def __init__(self, labeled_dataloader, unlabeled_dataloader, val_dataloader, finetune_dataloader, teacher_model, 
+               student_model, avg_student_model, criterion, teacher_optimizer, student_optimizer, 
+               teacher_scheduler, student_scheduler, teacher_scaler, student_scaler):
+        self.labeled_dataloader = labeled_dataloader
+        self.unlabeled_dataloader = unlabeled_dataloader
+        self.val_dataloader = val_dataloader
+        self.finetune_dataloader = finetune_dataloader
+        self.teacher_model = teacher_model
+        self.student_model = student_model
+        self.avg_student_model = avg_student_model
+        self.criterion = criterion
+        self.teacher_optimizer = teacher_optimizer
+        self.student_optimizer = student_optimizer
+        self.teacher_scheduler = teacher_scheduler
+        self.student_scheduler = student_scheduler
+        self.teacher_scaler = teacher_scaler
+        self.student_scaler = student_scaler
+        self.progress_bar = tqdm(range(hyperparams["eval_step"]), disable=hyperparams["local_rank"] not in [-1, 0])
+        self.batch_time = AverageMeter()
+        self.data_time = AverageMeter()
+        s_losses = AverageMeter()
+        t_losses = AverageMeter()
+        t_losses_l = AverageMeter()
+        t_losses_u = AverageMeter()
+        t_losses_mpl = AverageMeter()
+        mean_mask = AverageMeter()
+        normal_counts = AverageMeter()
+        glaucoma_counts = AverageMeter()
+        amd_counts = AverageMeter()
+        dr_counts = AverageMeter()
+        dot_products = AverageMeter()
     
-    lambd = partial(lr_lambda, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps, num_wait_steps=num_wait_steps, num_cycles=num_cycles)
-    return LambdaLR(optimizer, lambd, last_epoch)
-
-
-def layer_wise_learning_rate_decay(model) -> List[Dict[str, torch.Tensor]]:
-        names = []
-        for _, (name, _) in enumerate(model.named_parameters()):
-            names.append(name)
-        lr = hyperparams["lr"]
-        lr_decay = hyperparams["lr_decay"]
-        parameters = []
-        names.reverse()
-        prev_group_name = names[0].split(".")[-2]
-        for _, name in enumerate(names):
-            cur_group_name = name.split(".")[-2]
-            if cur_group_name != prev_group_name:
-                lr *= lr_decay
-            prev_group_name = cur_group_name
-            no_decay = ["bn"]
-            parameters += [
-                {
-                    "params": [
-                        p
-                        for n, p in model.named_parameters()
-                        if n == name and p.requires_grad and (not any(nd in n for nd in no_decay))
-                    ],
-                    'weight_decay': hyperparams["weight_decay"],
-                    "lr": lr,
-                },
-            ]
-            parameters += [
-                {
-                    "params": [
-                        p
-                        for n, p in model.named_parameters()
-                        if n == name and p.requires_grad and (any(nd in n for nd in no_decay))
-                    ],
-                    'weight_decay': 0.0,
-                    "lr": lr,
-                },
-            ]
-        return parameters
-    
-
-def save_checkpoint(state, is_best, finetune=False):
-    """Imported from https://github.com/kekmodel/MPL-pytorch/blob/main/utils.py"""
-    os.makedirs(hyperparams["save_path"], exist_ok=True)
-    if finetune:
-        name = f'{hyperparams["name"]}_finetune'
-    else:
-        name = hyperparams["name"]
-    filename = f'{hyperparams["save_path"]}/{name}_last.pth.tar'
-    torch.save(state, filename, _use_new_zipfile_serialization=True)
-    if is_best:
-        shutil.copyfile(filename, f'{hyperparams["save_path"]}/{hyperparams["name"]}_best.pth.tar')
-
-
-def module_load_state_dict(model, state_dict):
-    """Imported from https://github.com/kekmodel/MPL-pytorch/blob/main/utils.py"""
-    try:
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            name = k[7:]  # remove `module.`
-            new_state_dict[name] = v
-        model.load_state_dict(new_state_dict)
-    except:
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            name = f'module.{k}'  # add `module.`
-            new_state_dict[name] = v
-        model.load_state_dict(new_state_dict)
-
-
-def model_load_state_dict(model, state_dict):
-    """Imported from https://github.com/kekmodel/MPL-pytorch/blob/main/utils.py"""
-    try:
-        model.load_state_dict(state_dict)
-    except:
-        module_load_state_dict(model, state_dict)
-
-class AverageMeter(object):
-    """Computes and stores the average and current value
-       Imported from https://github.com/pytorch/examples/blob/master/imagenet/main.py#L247-L262
-       https://github.com/kekmodel/MPL-pytorch/blob/main/main.py
-    """
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
+    def train_loop(self):
+        if hyperparams["world_size"] > 1:
+            reset_samplers_for_distributed_training(self.labeled_loader, self.unlabeled_loader)
         
 
-def reduce_tensor(tensor, n):
-    """Imported from https://github.com/kekmodel/MPL-pytorch/blob/main/utils.py"""
-    rt = tensor.clone()
-    dist.all_reduce(rt, op=dist.ReduceOp.SUM)
-    rt /= n
-    return rt
-
-def get_lr_scheduler(optimizer):
-    return get_cosine_schedule_with_warmup(
-        optimizer,
-        num_warmup_steps=hyperparams["warmup_steps"],
-        num_training_steps=hyperparams["total_steps"],
-        num_wait_steps=0,
-        num_cycles=1,
-        last_epoch=-1
-    )
-    
-
-def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, teacher_model, 
-               student_model, avg_student_model, criterion, t_optimizer, s_optimizer, t_scheduler, s_scheduler, t_scaler, s_scaler):
+def train_loop(labeled_dataloader, unlabeled_dataloader, val_dataloader, finetune_dataloader, teacher_model, 
+               student_model, avg_student_model, criterion, teacher_optimizer, student_optimizer, 
+               teacher_scheduler, student_scheduler, teacher_scaler, student_scaler):
     """Mostly imported from https://github.com/kekmodel/MPL-pytorch/blob/main/main.py"""
-    print("Train loop start")
-    if hyperparams["world_size"] > 1:
-        labeled_epoch = 0
-        unlabeled_epoch = 0
-        labeled_loader.sampler.set_epoch(labeled_epoch)
-        unlabeled_loader.sampler.set_epoch(unlabeled_epoch)
+    
     
     labeled_iter = iter(labeled_loader)
     unlabeled_iter = iter(unlabeled_loader)
@@ -242,9 +149,13 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
     t_losses_u = AverageMeter()
     t_losses_mpl = AverageMeter()
     mean_mask = AverageMeter()
+    normal_counts = AverageMeter()
+    glaucoma_counts = AverageMeter()
+    amd_counts = AverageMeter()
+    dr_counts = AverageMeter()
+    dot_products = AverageMeter()
     
     for step in range(hyperparams["start_step"], hyperparams["total_steps"]):
-        print("Step")
         if step % hyperparams["eval_step"] == 0:
             pbar = tqdm(range(hyperparams["eval_step"]), disable=hyperparams["local_rank"] not in [-1, 0])
             batch_time = AverageMeter()
@@ -255,6 +166,11 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
             t_losses_u = AverageMeter()
             t_losses_mpl = AverageMeter()
             mean_mask = AverageMeter()
+            normal_counts = AverageMeter()
+            glaucoma_counts = AverageMeter()
+            amd_counts = AverageMeter()
+            dr_counts = AverageMeter()
+            dot_products = AverageMeter()
 
         teacher_model.train()
         student_model.train()
@@ -270,16 +186,17 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
             images_l, targets = labeled_iter.next()
 
         try:
+            # Original unlabeled images, augmented unlabeled images
             (images_uw, images_us), _ = unlabeled_iter.next()
         except:
             if hyperparams["world_size"] > 1:
                 unlabeled_epoch += 1
                 unlabeled_loader.sampler.set_epoch(unlabeled_epoch)
             unlabeled_iter = iter(unlabeled_loader)
+            # Original unlabeled images, augmented unlabeled images
             (images_uw, images_us), _ = unlabeled_iter.next()
         
         data_time.update(time.time() - end)
-        print("Past img loading")
 
         images_l = images_l.to(hyperparams["device"])
         images_uw = images_uw.to(hyperparams["device"])
@@ -293,8 +210,16 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
             t_logits_uw, t_logits_us = t_logits[batch_size:].chunk(2)
             del t_logits
 
+            # Teacher labeled loss
             t_loss_l = criterion(t_logits_l, targets)
 
+            # According to: https://github.com/google-research/google-research/issues/534#issuecomment-769526361
+            # Soft labels and student training should be on augmented unlabeled data?
+            # UDA loss seems to work like this: 
+            # sample soft pseudo labels from original unlabeled data -> sample logits from augmented unlabeled data ->
+            # -> for enough confident predictions on original labeled data calculate average cross entropy loss
+            # between soft pseudo labels and logits from augmented unlabeled data ->
+            # scale that loss by some factor and add loss on batch of labeled data. Unlabeled data should have ~7,8x larger batch size. 
             soft_pseudo_label = torch.softmax(t_logits_uw.detach() / hyperparams["uda_temperature"], dim=-1)
             max_probs, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
             mask = max_probs.ge(hyperparams["threshold"]).float()
@@ -309,10 +234,26 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
             s_logits_l = s_logits[:batch_size]
             s_logits_us = s_logits[batch_size:]
             del s_logits
-
+            
             s_loss_l_old = F.cross_entropy(s_logits_l.detach(), targets)
-            s_loss = criterion(s_logits_us, hard_pseudo_label)
-        
+            # That's probably wrong. Student probably should be trained on augmented data (as is) but with hard pseudo labels of teacher augmented data logits
+            # as pointed here: https://github.com/google-research/google-research/issues/534#issuecomment-769526361.
+            # and here: https://github.com/google-research/google-research/issues/534#issuecomment-769527910
+            # s_loss = criterion(s_logits_us, hard_pseudo_label)
+            # My (possibly) correct implementation.
+            _, hard_pseudo_label_aug = torch.max(t_logits_us.detach(), dim=-1)
+            s_loss = criterion(s_logits_us, hard_pseudo_label_aug)
+            hard_pseudo_label_pd = pd.Series(hard_pseudo_label.cpu().numpy())
+            label_stats = hard_pseudo_label_pd.value_counts()
+            if 0 in label_stats.keys():
+                normal_counts.update(label_stats[0])
+            if 1 in label_stats.keys():
+                glaucoma_counts.update(label_stats[1])
+            if 2 in label_stats.keys():
+                amd_counts.update(label_stats[2])
+            if 3 in label_stats.keys():
+                dr_counts.update(label_stats[3])
+
         s_scaler.scale(s_loss).backward()
         if hyperparams["grad_clip"] > 0:
             s_scaler.unscale_(s_optimizer)
@@ -322,7 +263,6 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
         s_scheduler.step()
         if hyperparams["ema"] > 0:
             avg_student_model.update_parameters(student_model)
-        print("Past student update")
 
         with amp.autocast(enabled=hyperparams["amp"]):
             with torch.no_grad():
@@ -333,14 +273,15 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
             # dot_product = s_loss_l_old - s_loss_l_new
 
             # author's code formula
-            dot_product = s_loss_l_new - s_loss_l_old # Tutaj powinien byc cosine distance? Przydalaby sie pomoc Artura w analizie tego
+            # As pointed out by https://github.com/kekmodel/MPL-pytorch/issues/6#issuecomment-851636630 the way the dot product is 
+            # calculated doesn't seem to matter that much. Moreover as denoted in the issue changing to theoretically correct formula may actually hurt performance.
+            dot_product = s_loss_l_new - s_loss_l_old # We don't use cosine similarity, because we use Taylor approximation.
             # moving_dot_product = moving_dot_product * 0.99 + dot_product * 0.01
             # dot_product = dot_product - moving_dot_product
 
+            # Teacher MPL loss is calculated on hard labels from augmented unlabeled data and logits from augmented unlabeled data.
             _, hard_pseudo_label = torch.max(t_logits_us.detach(), dim=-1)
             t_loss_mpl = dot_product * F.cross_entropy(t_logits_us, hard_pseudo_label)
-            # test
-            # t_loss_mpl = torch.tensor(0.).to(args.device)
             t_loss = t_loss_uda + t_loss_mpl
 
         t_scaler.scale(t_loss).backward()
@@ -350,7 +291,6 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
         t_scaler.step(t_optimizer)
         t_scaler.update()
         t_scheduler.step()
-        print("Past teacher update")
 
         teacher_model.zero_grad()
         student_model.zero_grad()
@@ -361,6 +301,7 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
             t_loss_l = reduce_tensor(t_loss_l.detach(), hyperparams["world_size"])
             t_loss_u = reduce_tensor(t_loss_u.detach(), hyperparams["world_size"])
             t_loss_mpl = reduce_tensor(t_loss_mpl.detach(), hyperparams["world_size"])
+            dot_product = reduce_tensor(dot_product.detach(), hyperparams["world_size"])
             mask = reduce_tensor(mask, hyperparams["world_size"])
 
         s_losses.update(s_loss.item())
@@ -368,14 +309,17 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
         t_losses_l.update(t_loss_l.item())
         t_losses_u.update(t_loss_u.item())
         t_losses_mpl.update(t_loss_mpl.item())
+        dot_products.update(dot_product.item())
         mean_mask.update(mask.mean().item())
 
         batch_time.update(time.time() - end)
         pbar.set_description(
             f"Train Iter: {step+1:3}/{hyperparams['world_size']:3}. "
-            f"LR: {hyperparams['lr']:.4f}. Data: {data_time.avg:.2f}s. "
+            f"LR: {get_lr(t_optimizer):.4f}. Data: {data_time.avg:.2f}s. "
             f"Batch: {batch_time.avg:.2f}s. S_Loss: {s_losses.avg:.4f}. "
-            f"T_Loss: {t_losses.avg:.4f}. Mask: {mean_mask.avg:.4f}. ")
+            f"T_Loss: {t_losses.avg:.4f}. Mask: {mean_mask.avg:.4f}. "
+            f"Normal: {normal_counts.avg:.2f}. Glaucoma: {glaucoma_counts.avg:.2f}. "
+            f"AMD: {amd_counts.avg:.2f}. DR: {dr_counts.avg:.2f}. ")
         pbar.update()
         if hyperparams["local_rank"] in [-1, 0]:
             wandb.log({"lr": hyperparams["lr"]})
@@ -389,14 +333,22 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
                            "train_teacher_labeled_loss": t_losses_l.avg,
                            "train_teacher_unlabeled_loss": t_losses_u.avg,
                            "train_teacher_mpl_loss": t_losses_mpl.avg,
-                           "train_uda_mask_mean": mean_mask.avg})
+                           "train_uda_mask_mean": mean_mask.avg,
+                           "normal_pseudo_avg_per_batch": normal_counts.avg,
+                           "glaucoma_pseudo_avg_per_batch": amd_counts.avg,
+                           "amd_pseudo_avg_per_batch": glaucoma_counts.avg,
+                           "dr_pseudo_avg_per_batch": dr_counts.avg,
+                           "normal_pseudo_sum": normal_counts.sum,
+                           "glaucoma_pseudo_sum": amd_counts.sum,
+                           "amd_pseudo_sum": glaucoma_counts.sum,
+                           "dr_pseudo_sum": dr_counts.sum})
 
                 val_model = avg_student_model if avg_student_model is not None else student_model
                 val_loss, acc, f1_macro = evaluate(val_loader, val_model, criterion)
 
                 wandb.log({"val_loss": val_loss,
-                           "test_accuracy": acc,
-                           "test_f1_macro": f1_macro})
+                           "val_accuracy": acc,
+                           "val_f1_macro": f1_macro})
 
                 is_best = acc > hyperparams["best_f1_macro"]
                 if is_best:
@@ -405,14 +357,28 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
 
                 logger.info(f"f1_macro: {f1_macro:.2f}")
                 logger.info(f"Best f1_macro: {hyperparams['best_f1_macro']:.2f}")
+                
+                val_loss_teacher, acc_teacher, f1_macro_teacher = evaluate(val_loader, teacher_model, criterion)
+
+                wandb.log({"val_loss_teacher": val_loss_teacher,
+                           "val_accuracy_teacher": acc_teacher,
+                           "val_f1_macro_teacher": f1_macro_teacher})
+
+                is_best_teacher = acc_teacher > hyperparams["best_f1_macro_teacher"]
+                if is_best_teacher:
+                    hyperparams["best_f1_macro_teacher"] = f1_macro_teacher
+                    hyperparams["best_accuracy_teacher"] = acc_teacher
+
+                logger.info(f"f1_macro_teacher: {f1_macro_teacher:.2f}")
+                logger.info(f"Best f1_macro_teacher: {hyperparams['best_f1_macro_teacher']:.2f}")
 
                 save_checkpoint({
                     'step': step + 1,
                     'teacher_state_dict': teacher_model.state_dict(),
                     'student_state_dict': student_model.state_dict(),
                     'avg_state_dict': avg_student_model.state_dict() if avg_student_model is not None else None,
-                    'accuracy': hyperparams["accuracy"],
-                    'f1_macro': hyperparams["f1_macro"],
+                    'accuracy': hyperparams["best_accuracy"],
+                    'f1_macro': hyperparams["best_f1_macro"],
                     'teacher_optimizer': t_optimizer.state_dict(),
                     'student_optimizer': s_optimizer.state_dict(),
                     'teacher_scheduler': t_scheduler.state_dict(),
@@ -422,8 +388,11 @@ def train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_loader, te
                 }, is_best)
 
     if hyperparams["local_rank"] in [-1, 0]:
-        wandb.log({"best_val_acc": hyperparams["accuracy"]})
-        wandb.log({"best_f1_macro": hyperparams["f1_macro"]})
+        wandb.log({"best_val_acc": hyperparams["best_accuracy"]})
+        wandb.log({"best_f1_macro": hyperparams['best_f1_macro']})
+        wandb.log({"best_val_acc_teacher": hyperparams["best_accuracy_teacher"]})
+        wandb.log({"best_f1_macro_teacher": hyperparams['best_f1_macro_teacher']})
+    
 
     # finetune
     del t_scaler, t_scheduler, t_optimizer, teacher_model, labeled_loader, unlabeled_loader
