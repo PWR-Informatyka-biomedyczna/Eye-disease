@@ -111,24 +111,31 @@ class Loops:
         self.student_scheduler = student_scheduler
         self.teacher_scaler = teacher_scaler
         self.student_scaler = student_scaler
-        self.progress_bar = tqdm(range(hyperparams["eval_step"]), disable=hyperparams["local_rank"] not in [-1, 0])
-        self.batch_time = AverageMeter()
-        self.data_time = AverageMeter()
-        s_losses = AverageMeter()
-        t_losses = AverageMeter()
-        t_losses_l = AverageMeter()
-        t_losses_u = AverageMeter()
-        t_losses_mpl = AverageMeter()
-        mean_mask = AverageMeter()
-        normal_counts = AverageMeter()
-        glaucoma_counts = AverageMeter()
-        amd_counts = AverageMeter()
-        dr_counts = AverageMeter()
-        dot_products = AverageMeter()
+        
     
     def train_loop(self):
         if hyperparams["world_size"] > 1:
-            reset_samplers_for_distributed_training(self.labeled_loader, self.unlabeled_loader)
+            reset_samplers_for_distributed_training(self.labeled_dataloader, self.unlabeled_dataloader)
+        
+        labeled_iter, unlabeled_iter = iter(self.labeled_dataloader), iter(self.unlabeled_dataloader)
+        self.reset_average_meters()
+            
+    def reset_average_meters(self):
+        self.progress_bar = tqdm(range(hyperparams["eval_step"]), disable=hyperparams["local_rank"] not in [-1, 0])
+        self.batch_time = AverageMeter()
+        self.data_time = AverageMeter()
+        self.s_losses = AverageMeter()
+        self.t_losses = AverageMeter()
+        self.t_losses_l = AverageMeter()
+        self.t_losses_u = AverageMeter()
+        self.t_losses_mpl = AverageMeter()
+        self.mean_mask = AverageMeter()
+        self.normal_counts = AverageMeter()
+        self.glaucoma_counts = AverageMeter()
+        self.amd_counts = AverageMeter()
+        self.dr_counts = AverageMeter()
+        self.dot_products = AverageMeter()
+        
         
 
 def train_loop(labeled_dataloader, unlabeled_dataloader, val_dataloader, finetune_dataloader, teacher_model, 
@@ -241,7 +248,8 @@ def train_loop(labeled_dataloader, unlabeled_dataloader, val_dataloader, finetun
             # and here: https://github.com/google-research/google-research/issues/534#issuecomment-769527910
             # s_loss = criterion(s_logits_us, hard_pseudo_label)
             # My (possibly) correct implementation.
-            _, hard_pseudo_label_aug = torch.max(t_logits_us.detach(), dim=-1)
+            soft_pseudo_label_aug = torch.softmax(t_logits_us.detach(), dim=-1)
+            _, hard_pseudo_label_aug = torch.max(soft_pseudo_label_aug, dim=-1)
             s_loss = criterion(s_logits_us, hard_pseudo_label_aug)
             hard_pseudo_label_pd = pd.Series(hard_pseudo_label.cpu().numpy())
             label_stats = hard_pseudo_label_pd.value_counts()
