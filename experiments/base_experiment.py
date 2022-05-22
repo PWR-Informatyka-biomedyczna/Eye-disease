@@ -5,8 +5,10 @@ from pathlib import Path
 import cv2
 import torch
 import timm
+from timm.scheduler.cosine_lr import CosineLRScheduler
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from adamp import AdamP
 
 
 from experiments.common import seed_all, freeze, unfreeze, get_train_params_count, load_lightning_model, layer_decay
@@ -23,8 +25,8 @@ SEED = 0
 PROJECT_NAME = 'EyeDiseaseExperimentsRemastered'
 NUM_CLASSES = 2
 LR = 1e-4
-OPTIM = 'adamw'
-BATCH_SIZE = 16
+OPTIM = 'adamp'
+BATCH_SIZE = 32
 MAX_EPOCHS = 100
 NORMALIZE = True
 MONITOR = 'val_loss'
@@ -44,12 +46,12 @@ cross_val = False
 cross_val_test = False
 k_folds = 10
 n_runs = 5
-LABEL_SMOOTHING = 0.2
-LAYER_DECAY = 0.9
-EMA_DECAY = 0.9999
+LABEL_SMOOTHING = 0.1
+LAYER_DECAY = 0.4
+EMA_DECAY = 0.0
 t_initial = 30
-eta_min = 1e-5
-warmup_lr_init = 1e-4
+eta_min = 1e-7
+warmup_lr_init = 1e-6
 warmup_epochs = 5
 cycle_mul = 1
 cycle_decay = 0.1
@@ -66,13 +68,17 @@ def init_optimizer(params, optimizer, lr=1e-4):
                                  momentum_decay=4e-3)
     if optimizer == 'radam':
         return torch.optim.RAdam(params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-5)
+    if optimizer == 'adamp':
+        return AdamP(params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2, nesterov=True)
     
     return None
 
 
 def main():
     seed_all(SEED)
-    #weights = torch.Tensor([1, 0.9, 1.5, 1.2])
+    # Wagi zaleznie czy pretraining czy finetuning
+    #weights = torch.Tensor([0.408, 0.408, 1, 0.408])
+    weights = torch.Tensor([0.647, 1])
     for model_class in models:
         run_id = hashlib.md5(
             bytes(str(time.time()), encoding='utf-8')
@@ -83,11 +89,9 @@ def main():
             model = model_class(NUM_CLASSES)
             if MODEL_PATH is not None:
                 model = load_lightning_model(model, LR, NUM_CLASSES, MODEL_PATH)
-            # TODO: Dostosowac wagi zgodnie z wzorem (w_i = sqrt(|class_i| / Max(|classes|)))
-            weights = torch.Tensor([1, 2])
             parameters = layer_decay(model, LR, LAYER_DECAY)
             optimizer = init_optimizer(parameters, OPTIM, lr=LR)
-            lr_scheduler = timm.scheduler.CosineLRScheduler(
+            lr_scheduler = CosineLRScheduler(
                 optimizer=optimizer,
                 t_initial=t_initial,
                 lr_min=eta_min,
@@ -103,7 +107,6 @@ def main():
             
             Path(checkpoints_run_dir).mkdir(mode=777, parents=True, exist_ok=True)
 
-            # TODO: Dostosować sciezke po wykonaniu splitu
             data_module = EyeDiseaseDataModule(
                 csv_path='/media/data/adam_chlopowiec/eye_image_classification/pretrain_corrected_data_splits.csv',
                 train_split_name=TRAIN_SPLIT_NAME,
