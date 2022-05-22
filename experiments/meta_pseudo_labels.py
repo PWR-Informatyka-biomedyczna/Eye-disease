@@ -111,14 +111,289 @@ class Loops:
         self.student_scheduler = student_scheduler
         self.teacher_scaler = teacher_scaler
         self.student_scaler = student_scaler
+        self.labeled_epoch = 0
+        self.labeled_iter = None
+        self.umlabeled_iter = None
+        
+    def get_labeled_batch(self):
+        try:
+            return self.labeled_dataloader.next()
+        except:
+            if hyperparams["world_size"] > 1:
+                self.labeled_epoch += 1
+                self.labeled_dataloader.sampler.set_epoch(self.labeled_epoch)
+            self.labeled_iter = iter(self.labeled_dataloader)
+            return self.labeled_iter.next()
+
+    def get_unlabeled_batch(self):
+        try:
+            # Original unlabeled images, augmented unlabeled images
+            return self.unlabeled_iter.next()
+        except:
+            if hyperparams["world_size"] > 1:
+                self.unlabeled_epoch += 1
+                self.unlabeled_dataloader.sampler.set_epoch(self.unlabeled_epoch)
+            self.unlabeled_iter = iter(self.unlabeled_dataloader)
+            # Original unlabeled images, augmented unlabeled images
+            return self.unlabeled_iter.next()
+    
+    def get_teacher_logits(self, images_labeled, images_unlabeled_orig, images_unlabeled_aug):
+        batch_size = images_labeled.shape[0]
+        teacher_images = torch.cat((images_labeled, images_unlabeled_orig, images_unlabeled_aug))
+        teacher_logits = self.teacher_model(teacher_images)
+        teacher_logits_labeled = teacher_logits[:batch_size]
+        teacher_logits_unlabeled_orig, teacher_logits_unlabeled_aug = teacher_logits[batch_size:].chunk(2)
+        del teacher_logits
+        return teacher_logits_labeled, teacher_logits_unlabeled_orig, teacher_logits_unlabeled_aug
+
+    def get_student_logits(self, images_labeled, images_unlabeled_aug):
+        batch_size = images_labeled.shape[0]
+        student_images = torch.cat((images_labeled, images_unlabeled_aug))
+        student_logits = self.student_model(student_images)
+        student_logits_labeled = student_logits[:batch_size]
+        student_logits_unlabeled_aug = student_logits[batch_size:]
+        del student_logits
+        return student_logits_labeled, student_logits_unlabeled_aug
+    
+    def get_teacher_losses(self, step, teacher_logits_labeled, teacher_logits_unlabeled_orig, teacher_logits_unlabeled_aug, targets):
+        teacher_loss_labeled = self.criterion(teacher_logits_labeled, targets)
+
+        # According to: https://github.com/google-research/google-research/issues/534#issuecomment-769526361
+        # Soft labels and student training should be on augmented unlabeled data
+        # UDA loss seems to work like this: 
+        # sample soft pseudo labels from original unlabeled data -> sample logits from augmented unlabeled data ->
+        # -> for enough confident predictions on original labeled data calculate average cross entropy loss
+        # between soft pseudo labels and logits from augmented unlabeled data ->
+        # scale that loss by some factor and add loss on batch of labeled data. Unlabeled data should have ~7,8x larger batch size. 
+        soft_pseudo_labels = torch.softmax(teacher_logits_unlabeled_orig.detach() / hyperparams["uda_temperature"], dim=-1)
+        max_probs, hard_pseudo_labels = torch.max(soft_pseudo_labels, dim=-1)
+        mask = max_probs.ge(hyperparams["threshold"]).float()
+        teacher_loss_unlabeled_aug = torch.mean(
+            -(soft_pseudo_labels * torch.log_softmax(teacher_logits_unlabeled_aug, dim=-1)).sum(dim=-1) * mask
+        )
+        uda_weight = hyperparams["uda_factor"] * min(1., (step + 1) / hyperparams["uda_steps"])
+        teacher_loss_uda = teacher_loss_labeled + uda_weight * teacher_loss_unlabeled_aug
+        return teacher_loss_labeled, teacher_loss_uda, hard_pseudo_labels
+    
+    def get_student_losses(self):
+        s_loss_l_old = F.cross_entropy(s_logits_l.detach(), targets)
+        # That's probably wrong. Student probably should be trained on augmented data (as is) but with hard pseudo labels of teacher augmented data logits
+        # as pointed here: https://github.com/google-research/google-research/issues/534#issuecomment-769526361.
+        # and here: https://github.com/google-research/google-research/issues/534#issuecomment-769527910
+        # s_loss = criterion(s_logits_us, hard_pseudo_label)
+        # My (possibly) correct implementation.
+        soft_pseudo_label_aug = torch.softmax(t_logits_us.detach(), dim=-1)
+        _, hard_pseudo_label_aug = torch.max(soft_pseudo_label_aug, dim=-1)
+        s_loss = criterion(s_logits_us, hard_pseudo_label_aug)
+    
+    def training_step(self, step):
+        if step % hyperparams["eval_step"] == 0:
+                self.reset_average_meters()
+
+        self.teacher_model.train()
+        self.student_model.train()
+        end = time.time()
+
+        images_labeled, targets = self.get_labeled_batch()
+        (images_unlabeled_orig, images_unlabeled_aug), _ = self.get_unlabeled_batch()
+        
+        self.data_time.update(time.time() - end)
+
+        images_labeled = images_labeled.to(hyperparams["device"])
+        images_unlabeled_orig = images_unlabeled_orig.to(hyperparams["device"])
+        images_unlabeled_aug = images_unlabeled_aug.to(hyperparams["device"])
+        targets = targets.to(hyperparams["device"])
+        with amp.autocast(enabled=hyperparams["amp"]):
+            teacher_logits_labeled, teacher_logits_unlabeled_orig, teacher_logits_unlabeled_aug = self.get_teacher_logits(
+                images_labeled,
+                images_unlabeled_orig,
+                images_unlabeled_aug
+            )
+            teacher_loss_labeled, teacher_loss_uda, hard_pseudo_labels = self.get_teacher_losses(
+                step,
+                teacher_logits_labeled,
+                teacher_logits_unlabeled_orig,
+                teacher_logits_unlabeled_aug,
+                targets
+            )
+            student_logits_labeled, student_logits_unlabeled_aug = self.get_student_logits(images_labeled, images_unlabeled_aug)
+            
+            
+            hard_pseudo_label_pd = pd.Series(hard_pseudo_label.cpu().numpy())
+            label_stats = hard_pseudo_label_pd.value_counts()
+            if 0 in label_stats.keys():
+                normal_counts.update(label_stats[0])
+            if 1 in label_stats.keys():
+                glaucoma_counts.update(label_stats[1])
+            if 2 in label_stats.keys():
+                amd_counts.update(label_stats[2])
+            if 3 in label_stats.keys():
+                dr_counts.update(label_stats[3])
+
+        s_scaler.scale(s_loss).backward()
+        if hyperparams["grad_clip"] > 0:
+            s_scaler.unscale_(s_optimizer)
+            nn.utils.clip_grad_norm_(student_model.parameters(), hyperparams["grad_clip"])
+        s_scaler.step(s_optimizer)
+        s_scaler.update()
+        s_scheduler.step()
+        if hyperparams["ema"] > 0:
+            avg_student_model.update_parameters(student_model)
+
+        with amp.autocast(enabled=hyperparams["amp"]):
+            with torch.no_grad():
+                s_logits_l = student_model(images_l)
+            s_loss_l_new = F.cross_entropy(s_logits_l.detach(), targets)
+
+            # theoretically correct formula (https://github.com/kekmodel/MPL-pytorch/issues/6)
+            # dot_product = s_loss_l_old - s_loss_l_new
+
+            # author's code formula
+            # As pointed out by https://github.com/kekmodel/MPL-pytorch/issues/6#issuecomment-851636630 the way the dot product is 
+            # calculated doesn't seem to matter that much. Moreover as denoted in the issue changing to theoretically correct formula may actually hurt performance.
+            dot_product = s_loss_l_new - s_loss_l_old # We don't use cosine similarity, because we use Taylor approximation.
+            # moving_dot_product = moving_dot_product * 0.99 + dot_product * 0.01
+            # dot_product = dot_product - moving_dot_product
+
+            # Teacher MPL loss is calculated on hard labels from augmented unlabeled data and logits from augmented unlabeled data.
+            _, hard_pseudo_label = torch.max(t_logits_us.detach(), dim=-1)
+            # MPL loss takes low values compared to uda loss, maybe add scalar to it
+            t_loss_mpl = dot_product * F.cross_entropy(t_logits_us, hard_pseudo_label)
+            t_loss = t_loss_uda + t_loss_mpl
+
+        t_scaler.scale(t_loss).backward()
+        if hyperparams["grad_clip"] > 0:
+            t_scaler.unscale_(t_optimizer)
+            nn.utils.clip_grad_norm_(teacher_model.parameters(), hyperparams["grad_clip"])
+        t_scaler.step(t_optimizer)
+        t_scaler.update()
+        t_scheduler.step()
+
+        teacher_model.zero_grad()
+        student_model.zero_grad()
+
+        if hyperparams["world_size"] > 1:
+            s_loss = reduce_tensor(s_loss.detach(), hyperparams["world_size"])
+            t_loss = reduce_tensor(t_loss.detach(), hyperparams["world_size"])
+            t_loss_l = reduce_tensor(t_loss_l.detach(), hyperparams["world_size"])
+            t_loss_u = reduce_tensor(t_loss_u.detach(), hyperparams["world_size"])
+            t_loss_mpl = reduce_tensor(t_loss_mpl.detach(), hyperparams["world_size"])
+            dot_product = reduce_tensor(dot_product.detach(), hyperparams["world_size"])
+            mask = reduce_tensor(mask, hyperparams["world_size"])
+
+        s_losses.update(s_loss.item())
+        t_losses.update(t_loss.item())
+        t_losses_l.update(t_loss_l.item())
+        t_losses_u.update(t_loss_u.item())
+        t_losses_mpl.update(t_loss_mpl.item())
+        dot_products.update(dot_product.item())
+        mean_mask.update(mask.mean().item())
+
+        batch_time.update(time.time() - end)
+        pbar.set_description(
+            f"Train Iter: {step+1:3}/{hyperparams['world_size']:3}. "
+            f"LR: {get_lr(t_optimizer):.4f}. Data: {data_time.avg:.2f}s. "
+            f"Batch: {batch_time.avg:.2f}s. S_Loss: {s_losses.avg:.4f}. "
+            f"T_Loss: {t_losses.avg:.4f}. Mask: {mean_mask.avg:.4f}. "
+            f"Normal: {normal_counts.avg:.2f}. Glaucoma: {glaucoma_counts.avg:.2f}. "
+            f"AMD: {amd_counts.avg:.2f}. DR: {dr_counts.avg:.2f}. ")
+        pbar.update()
+        if hyperparams["local_rank"] in [-1, 0]:
+            wandb.log({"lr": hyperparams["lr"]})
+
+        hyperparams["num_eval"] = step // hyperparams["eval_step"]
+        if (step + 1) % hyperparams["eval_step"] == 0:
+            pbar.close()
+            if hyperparams["local_rank"] in [-1, 0]:
+                wandb.log({"train_student_loss": s_losses.avg,
+                        "train_teacher_loss": t_losses.avg,
+                        "train_teacher_labeled_loss": t_losses_l.avg,
+                        "train_teacher_unlabeled_loss": t_losses_u.avg,
+                        "train_teacher_mpl_loss": t_losses_mpl.avg,
+                        "train_uda_mask_mean": mean_mask.avg,
+                        "normal_pseudo_avg_per_batch": normal_counts.avg,
+                        "glaucoma_pseudo_avg_per_batch": amd_counts.avg,
+                        "amd_pseudo_avg_per_batch": glaucoma_counts.avg,
+                        "dr_pseudo_avg_per_batch": dr_counts.avg,
+                        "normal_pseudo_sum": normal_counts.sum,
+                        "glaucoma_pseudo_sum": amd_counts.sum,
+                        "amd_pseudo_sum": glaucoma_counts.sum,
+                        "dr_pseudo_sum": dr_counts.sum})
+
+                val_model = avg_student_model if avg_student_model is not None else student_model
+                val_loss, acc, f1_macro = evaluate(val_loader, val_model, criterion)
+
+                wandb.log({"val_loss": val_loss,
+                        "val_accuracy": acc,
+                        "val_f1_macro": f1_macro})
+
+                is_best = acc > hyperparams["best_f1_macro"]
+                if is_best:
+                    hyperparams["best_f1_macro"] = f1_macro
+                    hyperparams["best_accuracy"] = acc
+
+                logger.info(f"f1_macro: {f1_macro:.2f}")
+                logger.info(f"Best f1_macro: {hyperparams['best_f1_macro']:.2f}")
+                
+                val_loss_teacher, acc_teacher, f1_macro_teacher = evaluate(val_loader, teacher_model, criterion)
+
+                wandb.log({"val_loss_teacher": val_loss_teacher,
+                        "val_accuracy_teacher": acc_teacher,
+                        "val_f1_macro_teacher": f1_macro_teacher})
+
+                is_best_teacher = acc_teacher > hyperparams["best_f1_macro_teacher"]
+                if is_best_teacher:
+                    hyperparams["best_f1_macro_teacher"] = f1_macro_teacher
+                    hyperparams["best_accuracy_teacher"] = acc_teacher
+
+                logger.info(f"f1_macro_teacher: {f1_macro_teacher:.2f}")
+                logger.info(f"Best f1_macro_teacher: {hyperparams['best_f1_macro_teacher']:.2f}")
+
+                save_checkpoint({
+                    'step': step + 1,
+                    'teacher_state_dict': teacher_model.state_dict(),
+                    'student_state_dict': student_model.state_dict(),
+                    'avg_state_dict': avg_student_model.state_dict() if avg_student_model is not None else None,
+                    'accuracy': hyperparams["best_accuracy"],
+                    'f1_macro': hyperparams["best_f1_macro"],
+                    'teacher_optimizer': t_optimizer.state_dict(),
+                    'student_optimizer': s_optimizer.state_dict(),
+                    'teacher_scheduler': t_scheduler.state_dict(),
+                    'student_scheduler': s_scheduler.state_dict(),
+                    'teacher_scaler': t_scaler.state_dict(),
+                    'student_scaler': s_scaler.state_dict(),
+                }, is_best)
         
     
     def train_loop(self):
         if hyperparams["world_size"] > 1:
             reset_samplers_for_distributed_training(self.labeled_dataloader, self.unlabeled_dataloader)
         
-        labeled_iter, unlabeled_iter = iter(self.labeled_dataloader), iter(self.unlabeled_dataloader)
+        self.labeled_iter, self.unlabeled_iter = iter(self.labeled_dataloader), iter(self.unlabeled_dataloader)
         self.reset_average_meters()
+        for step in range(hyperparams["start_step"], hyperparams["total_steps"]):
+            self.training_step(step)
+
+        if hyperparams["local_rank"] in [-1, 0]:
+            wandb.log({"best_val_acc": hyperparams["best_accuracy"]})
+            wandb.log({"best_f1_macro": hyperparams['best_f1_macro']})
+            wandb.log({"best_val_acc_teacher": hyperparams["best_accuracy_teacher"]})
+            wandb.log({"best_f1_macro_teacher": hyperparams['best_f1_macro_teacher']})
+        
+
+        # finetune
+        del t_scaler, t_scheduler, t_optimizer, teacher_model, labeled_loader, unlabeled_loader
+        del s_scaler, s_scheduler, s_optimizer
+        ckpt_name = f'{hyperparams["save_path"]}/{hyperparams["name"]}_best.pth.tar'
+        loc = f'cuda:{hyperparams["gpu"]}'
+        checkpoint = torch.load(ckpt_name, map_location=loc)
+        logger.info(f"=> loading checkpoint '{ckpt_name}'")
+        if checkpoint['avg_state_dict'] is not None:
+            model_load_state_dict(student_model, checkpoint['avg_state_dict'])
+        else:
+            model_load_state_dict(student_model, checkpoint['student_state_dict'])
+        finetune(finetune_loader, val_loader, student_model, criterion)
+        return
             
     def reset_average_meters(self):
         self.progress_bar = tqdm(range(hyperparams["eval_step"]), disable=hyperparams["local_rank"] not in [-1, 0])
@@ -134,7 +409,12 @@ class Loops:
         self.glaucoma_counts = AverageMeter()
         self.amd_counts = AverageMeter()
         self.dr_counts = AverageMeter()
-        self.dot_products = AverageMeter()
+        self.accuracy = AverageMeter()
+        self.f1s = [AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()]
+        self.sensitivities = [AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()]
+        self.specificities = [AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()]
+        self.precisions = [AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()]
+        self.roc_aucs = [AverageMeter(), AverageMeter(), AverageMeter(), AverageMeter()]
         
         
 
@@ -289,6 +569,7 @@ def train_loop(labeled_dataloader, unlabeled_dataloader, val_dataloader, finetun
 
             # Teacher MPL loss is calculated on hard labels from augmented unlabeled data and logits from augmented unlabeled data.
             _, hard_pseudo_label = torch.max(t_logits_us.detach(), dim=-1)
+            # MPL loss takes low values compared to uda loss, maybe add scalar to it
             t_loss_mpl = dot_product * F.cross_entropy(t_logits_us, hard_pseudo_label)
             t_loss = t_loss_uda + t_loss_mpl
 
