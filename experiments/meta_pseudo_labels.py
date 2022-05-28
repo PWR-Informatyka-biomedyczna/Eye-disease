@@ -34,43 +34,38 @@ from common import load_lightning_model
 
 logger = logging.getLogger(__name__)
 
-# TODO: Obczaić GradScaler
+# TODO: Test usual train transforms instead of RandAugment transforms, because they are confirmed to be label preserving
+# RandAugment is usually suitable for coarse-grained image classification
 hyperparams = {
     "project_name": "AIProjectMetaPseudoLabels",
     "entity_name": "kn-bmi",
     "seed": 42,
-    # "t_initial": 30,
-    # "eta_min": 1e-7,
-    # "warmup_lr_init": 1e-5,
-    "warmup_steps": 500,
-    # "cycle_mul": 1,
-    # "cycle_decay": 0.1,
+    "warmup_steps": 6000, 
     "lr": 1e-4,
     "batch_size_labeled": 8,
-    "batch_size_unlabeled": 64,
-    "lr_decay": 0.9, # Layer decay should be fine for both student and teacher 
-                     #(probably if applied then with same parameter value to both), but it's up to further consideration
-    "weight_decay": 5e-3,
+    "batch_size_unlabeled": 64, # Should be ~8x batch_size_labeled
+    "lr_decay": 0.9, # Checkout if layer decay actually improves performance
+    "weight_decay": 5e-3, # Probably necessary, otherwise seems to overfit to teacher's destillation
     "betas": (0.9, 0.999),
     "nesterov": True,
-    "weights": torch.Tensor([0.75, 1, 1, 0.75]),
+    "weights": torch.Tensor([1, 1, 1, 1]), # For MPL stage
     "workers": 2,
     "world_size": 1, # World size corresponds to number of processes (usually one per GPU)
     "start_step": 0,
-    "total_steps": 3000,
+    "total_steps": 30000, # Around 10 epochs, already seems infeasible for kaggle, should be 10-30x more
     "eval_step": 500,
     "local_rank": -1, # Local rank corresponds to process id within a node (world size / local rank explanation: 
                       # https://stackoverflow.com/questions/58271635/in-distributed-computing-what-are-world-size-and-rank)
-    "gpu": 0,
+    "gpu": 0, 
     "device": torch.device('cuda', 0),
     "amp": True,
-    "uda_temperature": 0.8,
-    "threshold": 0.95,
-    "uda_factor": 1.0,
-    "mpl_weight": 10.0,
-    "uda_steps": 3000,
-    "grad_clip": 0, # Check it out
-    "ema": False, # May try.
+    "uda_temperature": 0.8, # Should be tuned
+    "threshold": 0.95, # Should be tuned
+    "uda_factor": 1.0, # According to paper should rather be > 1, although uda loss seems to be pretty large in eye disease problem
+    "mpl_weight": 10.0, # Does not exist in original paper, although mpl loss is very little compared to uda loss
+    "uda_steps": 30000, # Number of steps after which uda loss weight achieves uda_factor value (TODO: confirm with paper)
+    "grad_clip": 2, # Should be tuned
+    "ema": False, # Probably beneficial for evaluation, although unfeasible
     "best_accuracy": 0.,
     "best_f1_macro": 0.,
     "best_accuracy_teacher": 0.,
@@ -79,7 +74,6 @@ hyperparams = {
     "best_finetune_accuracy": 0.,
     "save_path": r"./checkpoints/",
     "name": "regnet_y_3.2gf",
-    "finetune_epochs": 15, # Would be cool to get early stopping working here
     "train_split_name": "train",
     "val_split_name": "val",
     "test_split_name": "test",
@@ -88,7 +82,11 @@ hyperparams = {
     "resampler": identity_resampler,
     "resume": False,
     "evaluate": False,
-    "finetune": False
+    "finetune": False,
+    "finetune_weights": torch.Tensor([0.408, 0.408, 1, 0.408]), # Weights chosen as in upcoming paper
+    "finetune_epochs": 15, # Would be cool to get early stopping working here
+    "finetune_lr": 5e-5, # Lower learning rate for finetuning
+    "finetune_weight_decay": 1e-8 # Typical weight decay value for finetuning with decoupled weight decay
 }
 
 
@@ -193,7 +191,7 @@ class Loops:
 
         # According to: https://github.com/google-research/google-research/issues/534#issuecomment-769526361
         # Soft labels and student training should be on augmented unlabeled data
-        # UDA loss seems to work like this: 
+        # UDA loss seems to work like this (TODO: confirm with paper): 
         # sample soft pseudo labels from original unlabeled data -> sample logits from augmented unlabeled data ->
         # -> for enough confident predictions on original labeled data calculate average cross entropy loss
         # between soft pseudo labels and logits from augmented unlabeled data ->
@@ -210,7 +208,8 @@ class Loops:
     
     def get_student_losses(self, student_logits_labeled, student_logits_unlabeled_aug, targets, teacher_logits_unlabeled_aug):
         student_loss_labeled_old = F.cross_entropy(student_logits_labeled.detach(), targets)
-        # That's probably wrong. Student probably should be trained on augmented data (as is) but with hard pseudo labels of teacher augmented data logits
+        # That's probably wrong. Student probably should be trained on augmented data (as is) 
+        # but with hard pseudo labels of teacher augmented data logits
         # as pointed here: https://github.com/google-research/google-research/issues/534#issuecomment-769526361.
         # and here: https://github.com/google-research/google-research/issues/534#issuecomment-769527910
         # s_loss = criterion(s_logits_us, hard_pseudo_label)
@@ -261,7 +260,7 @@ class Loops:
 
             # Teacher MPL loss is calculated on hard labels from augmented unlabeled data and logits from augmented unlabeled data.
             _, hard_pseudo_labels_aug = torch.max(teacher_logits_unlabeled_aug.detach(), dim=-1)
-            # MPL loss takes low values compared to uda loss, maybe add scalar to it
+            # MPL loss takes low values compared to uda loss
             t_loss_mpl = dot_product * F.cross_entropy(teacher_logits_unlabeled_aug, hard_pseudo_labels_aug)
             teacher_final_loss = teacher_loss_uda + hyperparams["mpl_weight"] * t_loss_mpl
             return teacher_final_loss, hyperparams["mpl_weight"] * t_loss_mpl, dot_product
@@ -476,15 +475,13 @@ class Loops:
         return losses.avg, acc_meter.avg, f1_macro_meter.avg
     
     def finetune(self):
-        """Mostly imported from https://github.com/kekmodel/MPL-pytorch/blob/main/main.py"""
-        # model.drop = nn.Identity()
         self.reset_average_meters()
         parameters = layer_wise_learning_rate_decay(self.student_model)
         optimizer = AdamP(
             parameters,
-            lr=hyperparams["lr"],
+            lr=hyperparams["finetune_lr"],
             betas=(hyperparams["betas"][0], hyperparams["betas"][1]),
-            weight_decay=hyperparams["weight_decay"],
+            weight_decay=hyperparams["finetune_weight_decay"],
             nesterov=hyperparams["nesterov"],
         )
         scheduler = get_lr_scheduler(optimizer)
@@ -510,26 +507,6 @@ class Loops:
                     self.student_model.zero_grad()
                     outputs = self.student_model(images)
                     loss = self.criterion(outputs, targets)
-
-                for i in range(len(self.f1s)):
-                    f1_res = f1_score(outputs, targets, current_class=i)
-                    self.f1s[i].update(f1_res)
-                        
-                for i in range(len(self.sensitivities)):
-                    sens_res = sensitivity(outputs, targets, current_class=i)
-                    self.sensitivities[i].update(sens_res)
-                    
-                for i in range(len(self.specificities)):
-                    spec_res = specificity(outputs, targets, current_class=i)
-                    self.specificities[i].update(spec_res)
-                    
-                for i in range(len(self.precisions)):
-                    prec_res = precision(outputs, targets, current_class=i)
-                    self.precisions[i].update(prec_res)
-                
-                for i in range(len(self.roc_aucs)):
-                    roc_res = roc_auc(outputs, targets, current_class=i)
-                    self.roc_aucs[i].update(roc_res)
                         
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
@@ -656,38 +633,7 @@ class Loops:
         return
     
 
-def main():
-    """Mostly imported from https://github.com/kekmodel/MPL-pytorch/blob/main/main.py"""
-    if hyperparams["local_rank"] != -1:
-        hyperparams["gpu"] = hyperparams["local_rank"]
-        torch.distributed.init_process_group(backend='nccl')
-        hyperparams["world_size"] = torch.distributed.get_world_size()
-    else:
-        hyperparams["gpu"] = 0
-        hyperparams["world_size"] = 1
-
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO if hyperparams["local_rank"] in [-1, 0] else logging.WARNING)
-
-    logger.warning(
-        f"Process rank: {hyperparams['local_rank']}, "
-        f"device: {hyperparams['device']}, "
-        f"distributed training: {bool(hyperparams['local_rank'] != -1)}, "
-        f"16-bits training: {hyperparams['amp']}")
-
-    logger.info(hyperparams)
-
-    if hyperparams["local_rank"] in [-1, 0]:
-        wandb.init(project=hyperparams["project_name"], entity=hyperparams["entity_name"], config=hyperparams)
-
-    if hyperparams["local_rank"] not in [-1, 0]:
-        torch.distributed.barrier()
-
-    teacher_model = RegNetY3_2gf(4)
-    teacher_model = load_lightning_model(teacher_model, hyperparams["lr"], 4)
-    student_model = RegNetY3_2gf(4)
+def prepare_data_modules(teacher_model):
     labeled_datamodule = EyeDiseaseDataModule(
                 csv_path=r'../input/corrected-data-splits/kaggle_pretrain_corrected_data_splits.csv',
                 train_split_name=hyperparams["train_split_name"],
@@ -700,7 +646,7 @@ def main():
                 target_name='Label',
                 split_name='Split',
                 batch_size=hyperparams["batch_size_labeled"],
-                num_workers=12,
+                num_workers=hyperparams["workers"],
                 shuffle_train=True,
                 resampler=identity_resampler,
                 pretraining=False,
@@ -713,14 +659,14 @@ def main():
                 train_split_name=hyperparams["unlabeled_split_name"],
                 val_split_name=hyperparams["val_split_name"],
                 test_split_name=hyperparams["test_split_name"],
-                train_transforms=mpl_transforms(teacher_model.input_size, hyperparams["normalize"], cv2.INTER_NEAREST),
+                train_transforms=train_transforms(teacher_model.input_size, hyperparams["normalize"], cv2.INTER_NEAREST),
                 val_transforms=test_val_transforms(teacher_model.input_size, hyperparams["normalize"], cv2.INTER_NEAREST),
                 test_transforms=test_val_transforms(teacher_model.input_size, hyperparams["normalize"], cv2.INTER_NEAREST),
                 image_path_name='Path',
                 target_name='Label',
                 split_name='Split',
                 batch_size=hyperparams["batch_size_unlabeled"],
-                num_workers=12,
+                num_workers=hyperparams["workers"],
                 shuffle_train=True,
                 resampler=identity_resampler,
                 pretraining=False,
@@ -740,42 +686,57 @@ def main():
                 target_name='Label',
                 split_name='Split',
                 batch_size=hyperparams["batch_size_labeled"],
-                num_workers=12,
+                num_workers=hyperparams["workers"],
                 shuffle_train=True,
                 resampler=identity_resampler,
                 pretraining=False,
                 binary=False
     )
     finetune_datamodule.prepare_data()
+    return labeled_datamodule, unlabeled_datamodule, finetune_datamodule
 
-    if hyperparams["local_rank"] == 0:
+
+def init_logging():
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        level=logging.INFO if hyperparams["local_rank"] in [-1, 0] else logging.WARNING)
+
+    logger.warning(
+        f"Process rank: {hyperparams['local_rank']}, "
+        f"device: {hyperparams['device']}, "
+        f"distributed training: {bool(hyperparams['local_rank'] != -1)}, "
+        f"16-bits training: {hyperparams['amp']}")
+
+    logger.info(hyperparams)
+
+    if hyperparams["local_rank"] in [-1, 0]:
+        wandb.init(project=hyperparams["project_name"], entity=hyperparams["entity_name"], config=hyperparams)
+
+
+def init_distributed():
+    if hyperparams["local_rank"] != -1:
+        hyperparams["gpu"] = hyperparams["local_rank"]
+        torch.distributed.init_process_group(backend='nccl')
+        hyperparams["world_size"] = torch.distributed.get_world_size()
+    else:
+        hyperparams["gpu"] = 0
+        hyperparams["world_size"] = 1
+    
+    if hyperparams["local_rank"] != -1:
         torch.distributed.barrier()
+    
 
-    train_sampler = RandomSampler if hyperparams["local_rank"] == -1 else DistributedSampler
-    labeled_loader = labeled_datamodule.train_dataloader()
-
-    unlabeled_loader = unlabeled_datamodule.train_dataloader()
-    val_loader = labeled_datamodule.val_dataloader()
-
-    if hyperparams["local_rank"] not in [-1, 0]:
-        torch.distributed.barrier()
-
-    if hyperparams["local_rank"] == 0:
-        torch.distributed.barrier()
-
+def init_models():
+    teacher_model = RegNetY3_2gf(4)
+    teacher_model = load_lightning_model(teacher_model, hyperparams["lr"], 4)
+    student_model = RegNetY3_2gf(4)
     logger.info(f"Teacher Model: {teacher_model.__class__}")
     logger.info(f"Student Model: {student_model.__class__}")
     logger.info(f"Params: {sum(p.numel() for p in teacher_model.parameters())/1e6:.2f}M")
-
     teacher_model.to(hyperparams["device"])
     student_model.to(hyperparams["device"])
-    avg_student_model = None
-    # if hyperparams["ema"] > 0:
-    #     avg_student_model = ModelEMA(student_model, args.ema)
-
-    criterion = torch.nn.CrossEntropyLoss(weight=hyperparams["weights"].to(hyperparams["device"]))
-
-    no_decay = ['bn']
+    
     teacher_parameters = layer_wise_learning_rate_decay(teacher_model)
     student_parameters = layer_wise_learning_rate_decay(student_model)
 
@@ -799,36 +760,60 @@ def main():
 
     teacher_scaler = amp.GradScaler(enabled=hyperparams["amp"])
     student_scaler = amp.GradScaler(enabled=hyperparams["amp"])
+    return teacher_model, student_model, teacher_optimizer, student_optimizer, teacher_scheduler, student_scheduler, teacher_scaler, student_scaler
 
-    # optionally resume from a checkpoint
-    if hyperparams["resume"]:
-        if os.path.isfile(hyperparams['resume']):
-            logger.info(f"=> loading checkpoint '{hyperparams['resume']}'")
-            loc = f"cuda:{hyperparams['gpu']}"
-            checkpoint = torch.load(hyperparams['resume'], map_location=loc)
-            hyperparams['best_accuracy'] = checkpoint['best_accuracy'].to(torch.device('cpu'))
-            hyperparams['best_f1_macro'] = checkpoint['best_f1_macro'].to(torch.device('cpu'))
-            if not (hyperparams["evaluate"] or hyperparams["finetune"]):
-                hyperparams['start_step'] = checkpoint['step']
-                teacher_optimizer.load_state_dict(checkpoint['teacher_optimizer'])
-                student_optimizer.load_state_dict(checkpoint['student_optimizer'])
-                teacher_scheduler.load_state_dict(checkpoint['teacher_scheduler'])
-                student_scheduler.load_state_dict(checkpoint['student_scheduler'])
-                teacher_scaler.load_state_dict(checkpoint['teacher_scaler'])
-                student_scaler.load_state_dict(checkpoint['student_scaler'])
-                model_load_state_dict(teacher_model, checkpoint['teacher_state_dict'])
-                if avg_student_model is not None:
-                    model_load_state_dict(avg_student_model, checkpoint['avg_state_dict'])
 
-            else:
-                if checkpoint['avg_state_dict'] is not None:
-                    model_load_state_dict(student_model, checkpoint['avg_state_dict'])
-                else:
-                    model_load_state_dict(student_model, checkpoint['student_state_dict'])
+def resume(teacher_optimizer, student_optimizer, teacher_scheduler, student_scheduler, teacher_model, 
+            student_model, avg_student_model, teacher_scaler, student_scaler):
+    if os.path.isfile(hyperparams['resume']):
+        logger.info(f"=> loading checkpoint '{hyperparams['resume']}'")
+        loc = f"cuda:{hyperparams['gpu']}"
+        checkpoint = torch.load(hyperparams['resume'], map_location=loc)
+        hyperparams['best_accuracy'] = checkpoint['best_accuracy'].to(torch.device('cpu'))
+        hyperparams['best_f1_macro'] = checkpoint['best_f1_macro'].to(torch.device('cpu'))
+        if not (hyperparams["evaluate"] or hyperparams["finetune"]):
+            hyperparams['start_step'] = checkpoint['step']
+            teacher_optimizer.load_state_dict(checkpoint['teacher_optimizer'])
+            student_optimizer.load_state_dict(checkpoint['student_optimizer'])
+            teacher_scheduler.load_state_dict(checkpoint['teacher_scheduler'])
+            student_scheduler.load_state_dict(checkpoint['student_scheduler'])
+            teacher_scaler.load_state_dict(checkpoint['teacher_scaler'])
+            student_scaler.load_state_dict(checkpoint['student_scaler'])
+            model_load_state_dict(teacher_model, checkpoint['teacher_state_dict'])
+            if avg_student_model is not None:
+                model_load_state_dict(avg_student_model, checkpoint['avg_state_dict'])
 
-            logger.info(f"=> loaded checkpoint '{hyperparams['resume']}' (step {checkpoint['step']})")
         else:
-            logger.info(f"=> no checkpoint found at '{hyperparams['resume']}'")
+            if checkpoint['avg_state_dict'] is not None:
+                model_load_state_dict(student_model, checkpoint['avg_state_dict'])
+            else:
+                model_load_state_dict(student_model, checkpoint['student_state_dict'])
+
+        logger.info(f"=> loaded checkpoint '{hyperparams['resume']}' (step {checkpoint['step']})")
+    else:
+        logger.info(f"=> no checkpoint found at '{hyperparams['resume']}'")
+
+
+def main():
+    init_distributed()
+    init_logging()
+    labeled_datamodule, unlabeled_datamodule, finetune_datamodule = prepare_data_modules(teacher_model)
+
+    labeled_loader = labeled_datamodule.train_dataloader()
+    unlabeled_loader = unlabeled_datamodule.train_dataloader()
+    val_loader = labeled_datamodule.val_dataloader()
+
+    if hyperparams["local_rank"] != -1:
+        torch.distributed.barrier()    
+
+    avg_student_model = None
+    criterion = torch.nn.CrossEntropyLoss(weight=hyperparams["weights"].to(hyperparams["device"]))
+    
+    teacher_model, student_model, teacher_optimizer, student_optimizer, teacher_scheduler, student_scheduler, teacher_scaler, student_scaler = init_models()
+
+    if hyperparams["resume"]:
+        resume(teacher_optimizer, student_optimizer, teacher_scheduler, student_scheduler, 
+                teacher_model, student_model, avg_student_model, teacher_scaler, student_scaler)
 
     if hyperparams['local_rank'] != -1:
         teacher_model = nn.parallel.DistributedDataParallel(
@@ -854,9 +839,6 @@ def main():
     teacher_model.zero_grad()
     student_model.zero_grad()
     loops.train_loop()
-    # train_loop(labeled_loader, unlabeled_loader, val_loader, finetune_datamodule.train_dataloader(),
-    #            teacher_model, student_model, avg_student_model, criterion,
-    #            teacher_optimizer, student_optimizer, teacher_scheduler, student_scheduler, teacher_scaler, student_scaler)
     return
     
 
