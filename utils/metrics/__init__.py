@@ -93,6 +93,14 @@ def f1_score(probas: torch.Tensor, y_true: torch.Tensor, current_class: int):
     return 2 * tp / (2 * tp + fp + fn + 1e-10)   
 
 
+def precision(probas: torch.Tensor, y_true: torch.Tensor, current_class: int) -> torch.Tensor:
+    y_pred = torch.argmax(probas, axis=1)
+    new_pred, new_true = mask(y_pred, y_true, current_class)
+    tp = true_positive(new_pred, new_true)
+    fp = false_positive(new_pred, new_true)
+    return tp / (tp + fp + 1e-10)
+
+
 def roc_auc(probas: torch.Tensor, y_true: torch.Tensor, current_class: int):
     """
     Calculate ROC AUC
