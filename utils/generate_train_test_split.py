@@ -4,9 +4,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
-CSV_PATH = r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\pretrain_corrected_data_splits.csv'
+CSV_PATH = '/home/konradkaranowski/storage/full_data_resized'
 NEW_CSV_PATH = r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\pretrain_no_eyepacs_corrected_data_splits.csv'
-PRETRAIN_CSV_PATH = r'C:\Users\Adam\Desktop\Studia\Psy Tabakowa\eye-disease\Eye-disease\pretrain_no_eyepacs_corrected_data_splits.csv'
+PRETRAIN_CSV_PATH = r'/home/konradkaranowski/storage/full_data_resized'
 SPLIT_RATIOS = {
     'train_dev': 0.80,
     'train': 0.80,

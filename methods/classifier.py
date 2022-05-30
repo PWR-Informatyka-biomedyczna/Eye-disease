@@ -33,6 +33,7 @@ class Classifier(pl.LightningModule):
         :param optimizer: torch.optim.Optimizer
             optimizer
         """
+        self.save_hyperparameters()
         super(Classifier, self).__init__()
         # optimizer config
         self.optimizer = optimizer
@@ -94,6 +95,11 @@ class Classifier(pl.LightningModule):
         """
         out = self.model(x)
         return out
+
+    def lr_scheduler_step(
+        self, scheduler: torch.optim.lr_scheduler._LRScheduler, optimizer_idx, metric
+    ) -> None:
+        scheduler.step(epoch=self.current_epoch)
 
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """

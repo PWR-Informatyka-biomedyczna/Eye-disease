@@ -25,9 +25,8 @@ def train_test(
         #strategy: ParallelPlugin = DDPPlugin(find_unused_parameters=False),
         weights: torch.Tensor = None,
         lr_scheduler: torch.optim.lr_scheduler = None,
-        test_only: bool = False,
-        cross_val: bool = True,
-        label_smoothing: float = 0.0
+        label_smoothing: float = 0.0,
+        test: bool = True
         ):
     """
     Base experiment function
@@ -57,27 +56,17 @@ def train_test(
         max_epochs=max_epochs,
         gpus=gpus,
         callbacks=callbacks,
-        logger=logger,
-        precision=precision,
-        strategy=strategy
+        logger=logger
     )
-    if test_only:
+    trainer.fit(
+        model=module,
+        train_dataloaders=datamodule.train_dataloader(),
+        val_dataloaders=datamodule.val_dataloader()
+    )
+    if test:
         trainer.test(
-            model=module,
-            test_dataloaders=datamodule.test_dataloader()
+            dataloaders=[datamodule.test_dataloader()]
         )
-        return module.test_score
-    elif cross_val:
-        trainer.fit(
-            model=module,
-            train_dataloaders=datamodule.kfold_train_dataloader(),
-            val_dataloaders=datamodule.kfold_val_dataloader()
-        )
-        return module.val_score
-    else:
-        trainer.fit(
-            model=module,
-            train_dataloaders=datamodule.train_dataloader(),
-            val_dataloaders=datamodule.val_dataloader()
-        )
-        return module.val_score
+    best_model = Classifier.load_from_checkpoint(checkpoint_path=callbacks[0].best_model_path)
+    logger.experiment.finish()
+    return best_model.model

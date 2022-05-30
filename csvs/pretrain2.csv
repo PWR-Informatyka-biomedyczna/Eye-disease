@@ -1,0 +1,101 @@
+Unnamed: 0,Unnamed: 0.1,Unnamed: 0.1.1,Label,Path,Dataset,Camera,Split
+21141,115086,115086,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/3226_right.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+53264,9297,9297,0,/home/konradkaranowski/storage/full_data_resized/7/normal_control/462.png,7,Unknown,train
+59368,57,57,0,/home/konradkaranowski/storage/full_data_resized/1/Database/Images/Im058_ACRIMA.jpg,1,Topcon TRC non-mydriatic,train
+89190,112028,112028,0,/home/konradkaranowski/storage/full_data_resized/15/IMAGES/IM002821.JPG,15,Topcon TRC NW6,train
+29769,114096,114096,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/1059_right.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+107937,116135,116135,3,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/582_left.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+555,104895,104895,3,/home/konradkaranowski/storage/full_data_resized/13/data/1349_1_R.jpg,13,Nidek AFC-230 non-mydriatic,train
+94174,100899,100899,0,/home/konradkaranowski/storage/full_data_resized/13/data/361_3_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+105593,106397,106397,3,/home/konradkaranowski/storage/full_data_resized/13/data/1751_7_R.jpg,13,Nidek AFC-230 non-mydriatic,train
+63625,112803,112803,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/2496_left.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+29883,114076,114076,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/942_right.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+60851,100185,100185,0,/home/konradkaranowski/storage/full_data_resized/13/data/183_9_R.jpg,13,Nidek AFC-230 non-mydriatic,train
+71359,113580,113580,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/3274_left.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+1909,117680,117680,3,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/4686_right.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+91010,101811,101811,0,/home/konradkaranowski/storage/full_data_resized/13/data/594_2_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+67654,4499,4499,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/133f96f06473.png,2,Variety of cameras,train
+82484,111882,111882,0,/home/konradkaranowski/storage/full_data_resized/15/IMAGES/IM001737.JPG,15,Topcon TRC NW6,train
+83040,2224,2224,0,/home/konradkaranowski/storage/full_data_resized/2/train_images/6b3860e8f64f.png,2,Variety of cameras,train
+13516,118258,118258,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/1066.jpg,20,Unknown,train
+58924,7581,7581,0,/home/konradkaranowski/storage/full_data_resized/5/DR2-images-by-lesions/Normal Images/IM001059.JPG,5,Topcon TRC NW8 non-mydriatic,train
+101717,109779,109779,3,/home/konradkaranowski/storage/full_data_resized/14/FundusImagesColor/eye_046/visit_2_image_4.png,14,Topcon TRC-NW65 non-mydriatic,train
+7768,124386,124386,3,/home/konradkaranowski/storage/full_data_resized/29/Training_Set/Training/427.png,29,"TOPCON 3D OCT-2000, Kowa VX-10alfa mydriatic and non-mydriatic two in one, and TOPCON TRC-NW300 non-mydriatic",train
+80872,106267,106267,0,/home/konradkaranowski/storage/full_data_resized/13/data/1711_7_R.jpg,13,Nidek AFC-230 non-mydriatic,train
+96256,110029,110029,3,/home/konradkaranowski/storage/full_data_resized/14/FundusImagesColor/eye_079/visit_1_image_2.png,14,Topcon TRC-NW65 non-mydriatic,train
+75542,5958,5958,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/d4266ee268a8.png,2,Variety of cameras,train
+13897,109293,109293,0,/home/konradkaranowski/storage/full_data_resized/13/data/2689_2_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+101622,10553,10553,3,/home/konradkaranowski/storage/full_data_resized/8/e_optha_EX/EX/E0020257/C0024409.jpg,8,Unknown,train
+61457,113294,113294,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/2987_left.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+122979,103633,103633,3,/home/konradkaranowski/storage/full_data_resized/13/data/1053_3_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+71482,100938,100938,0,/home/konradkaranowski/storage/full_data_resized/13/data/373_2_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+125028,2620,2620,3,/home/konradkaranowski/storage/full_data_resized/2/train_images/8714d17bb6da.png,2,Variety of cameras,train
+48565,108393,108393,0,/home/konradkaranowski/storage/full_data_resized/13/data/2372_1_R.jpg,13,Nidek AFC-230 non-mydriatic,train
+42995,112440,112440,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/540_left.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+41169,5025,5025,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/5a66a5abdec6.png,2,Variety of cameras,train
+60799,120733,120733,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/5666.jpg,20,Unknown,train
+124217,100422,100422,3,/home/konradkaranowski/storage/full_data_resized/13/data/245_1_R.jpg,13,Nidek AFC-230 non-mydriatic,train
+120112,7819,7819,3,/home/konradkaranowski/storage/full_data_resized/5/DR1-images-by-lesions/Deep Hemorrhages/IMG0480 (2).TIF,5,Topcon TRC-50X mydriatic,train
+41649,2810,2810,0,/home/konradkaranowski/storage/full_data_resized/2/train_images/93d6d20a5ee3.png,2,Variety of cameras,train
+123712,100487,100487,3,/home/konradkaranowski/storage/full_data_resized/13/data/262_8_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+64428,118227,118227,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/0999.jpg,20,Unknown,train
+103640,8542,8542,3,/home/konradkaranowski/storage/full_data_resized/5/DR1-images-by-lesions/Superficial Hemorrhages/IMG0773 (2).TIF,5,Topcon TRC-50X mydriatic,train
+60390,122922,122922,0,/home/konradkaranowski/storage/full_data_resized/22/RIM-ONE_DL_images/partitioned_by_hospital/training_set/normal/r2_Im238.png,22,Nidek AFC-210 non-mydriatic,train
+56226,122994,122994,0,/home/konradkaranowski/storage/full_data_resized/22/RIM-ONE_DL_images/partitioned_by_hospital/training_set/normal/r3_N-66-R_left_half.png,22,Kowa WX 3D stereo non-mydriatic,train
+52938,104760,104760,0,/home/konradkaranowski/storage/full_data_resized/13/data/1321_4_R.jpg,13,Nidek AFC-230 non-mydriatic,train
+51333,99725,99725,0,/home/konradkaranowski/storage/full_data_resized/13/data/59_2_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+121341,110375,110375,3,/home/konradkaranowski/storage/full_data_resized/14/FundusImagesColor/eye_119/visit_1_image_4.png,14,Topcon TRC-NW65 non-mydriatic,train
+28246,110916,110916,0,/home/konradkaranowski/storage/full_data_resized/15/IMAGES/20051205_59833_0400_PP.png,15,Topcon TRC NW6,train
+96329,100057,100057,3,/home/konradkaranowski/storage/full_data_resized/13/data/152_15_L.jpg,13,Nidek AFC-230 non-mydriatic,train
+123196,117373,117373,3,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/4265_right.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",train
+57963,123077,123077,0,/home/konradkaranowski/storage/full_data_resized/22/RIM-ONE_DL_images/partitioned_by_hospital/test_set/normal/r1_Im131.png,22,Nidek AFC-210 non-mydriatic,train
+27012,119646,119646,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/3620.jpg,20,Unknown,val
+16454,102033,102033,0,/home/konradkaranowski/storage/full_data_resized/13/data/659_1_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+116506,2147,2147,3,/home/konradkaranowski/storage/full_data_resized/2/train_images/657859f893d9.png,2,Variety of cameras,val
+81256,3083,3083,0,/home/konradkaranowski/storage/full_data_resized/2/train_images/a673193cd5a9.png,2,Variety of cameras,val
+109244,3599,3599,3,/home/konradkaranowski/storage/full_data_resized/2/train_images/c9485c38fdd5.png,2,Variety of cameras,val
+72589,108051,108051,0,/home/konradkaranowski/storage/full_data_resized/13/data/2256_3_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+121027,101579,101579,3,/home/konradkaranowski/storage/full_data_resized/13/data/538_4_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+48218,3921,3921,0,/home/konradkaranowski/storage/full_data_resized/2/train_images/e01b7bac822b.png,2,Variety of cameras,val
+107569,124607,124607,3,/home/konradkaranowski/storage/full_data_resized/29/Training_Set/Training/949.png,29,"TOPCON 3D OCT-2000, Kowa VX-10alfa mydriatic and non-mydriatic two in one, and TOPCON TRC-NW300 non-mydriatic",val
+55407,108551,108551,0,/home/konradkaranowski/storage/full_data_resized/13/data/2424_1_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+62231,105178,105178,0,/home/konradkaranowski/storage/full_data_resized/13/data/1426_8_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+103519,102286,102286,3,/home/konradkaranowski/storage/full_data_resized/13/data/727_1_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+118070,4284,4284,3,/home/konradkaranowski/storage/full_data_resized/2/train_images/f999c6921e6d.png,2,Variety of cameras,val
+32241,119480,119480,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/2689.jpg,20,Unknown,val
+68678,101704,101704,0,/home/konradkaranowski/storage/full_data_resized/13/data/571_4_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+83363,111008,111008,0,/home/konradkaranowski/storage/full_data_resized/15/IMAGES/20051214_56392_0100_PP.png,15,Topcon TRC NW6,val
+83494,108607,108607,0,/home/konradkaranowski/storage/full_data_resized/13/data/2447_6_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+94126,8947,8947,0,/home/konradkaranowski/storage/full_data_resized/7/normal_control/165.png,7,Unknown,val
+117470,107943,107943,3,/home/konradkaranowski/storage/full_data_resized/13/data/2217_3_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+81412,4317,4317,0,/home/konradkaranowski/storage/full_data_resized/2/train_images/fc898dfeb24f.png,2,Variety of cameras,val
+25509,5013,5013,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/58b740608ded.png,2,Variety of cameras,val
+31715,104557,104557,0,/home/konradkaranowski/storage/full_data_resized/13/data/1272_1_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+43488,103938,103938,0,/home/konradkaranowski/storage/full_data_resized/13/data/1126_1_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+85260,110721,110721,0,/home/konradkaranowski/storage/full_data_resized/15/IMAGES/20051117_37051_0400_PP.png,15,Topcon TRC NW6,val
+45264,108484,108484,0,/home/konradkaranowski/storage/full_data_resized/13/data/2401_2_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+64622,6942,6942,0,/home/konradkaranowski/storage/full_data_resized/5/DR1-images-by-lesions/Normal Images/c (27).TIF,5,Topcon TRC-50X mydriatic,val
+13149,102732,102732,0,/home/konradkaranowski/storage/full_data_resized/13/data/841_3_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+60591,117973,117973,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/0531.jpg,20,Unknown,val
+28933,113512,113512,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/3205_left.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",val
+44731,119828,119828,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/3985.jpg,20,Unknown,val
+19523,118992,118992,0,/home/konradkaranowski/storage/full_data_resized/20/non_glaucoma/image/2455.jpg,20,Unknown,val
+78004,104934,104934,0,/home/konradkaranowski/storage/full_data_resized/13/data/1361_7_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+72593,9538,9538,0,/home/konradkaranowski/storage/full_data_resized/7/normal_control/690.png,7,Unknown,val
+92909,4949,4949,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/500586e31827.png,2,Variety of cameras,val
+67698,114520,114520,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/2660_right.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",val
+38410,4606,4606,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/2412b2c0e74a.png,2,Variety of cameras,val
+73897,124599,124599,0,/home/konradkaranowski/storage/full_data_resized/29/Training_Set/Training/936.png,29,"TOPCON 3D OCT-2000, Kowa VX-10alfa mydriatic and non-mydriatic two in one, and TOPCON TRC-NW300 non-mydriatic",val
+30568,104170,104170,0,/home/konradkaranowski/storage/full_data_resized/13/data/1186_2_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+102532,8041,8041,3,/home/konradkaranowski/storage/full_data_resized/5/DR1-images-by-lesions/Drusen/IMG0249 (8).TIF,5,Topcon TRC-50X mydriatic,val
+49834,5906,5906,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/cd6cb8eca034.png,2,Variety of cameras,val
+56068,100273,100273,0,/home/konradkaranowski/storage/full_data_resized/13/data/206_7_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+7748,102206,102206,0,/home/konradkaranowski/storage/full_data_resized/13/data/707_1_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+112727,108907,108907,3,/home/konradkaranowski/storage/full_data_resized/13/data/2550_2_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+32766,115334,115334,0,/home/konradkaranowski/storage/full_data_resized/16/ODIR-5K_Training_Dataset/4172_right.jpg,16,"Various cameras such as Canon, Zeiss, Kowa",val
+119057,3714,3714,3,/home/konradkaranowski/storage/full_data_resized/2/train_images/d18aea8238a0.png,2,Variety of cameras,val
+7976,101017,101017,0,/home/konradkaranowski/storage/full_data_resized/13/data/398_2_R.jpg,13,Nidek AFC-230 non-mydriatic,val
+30067,100269,100269,0,/home/konradkaranowski/storage/full_data_resized/13/data/206_3_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+52444,103431,103431,0,/home/konradkaranowski/storage/full_data_resized/13/data/1003_3_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+120425,104006,104006,3,/home/konradkaranowski/storage/full_data_resized/13/data/1138_3_L.jpg,13,Nidek AFC-230 non-mydriatic,val
+90226,4764,4764,0,/home/konradkaranowski/storage/full_data_resized/2/test_images/3a1bdff4e304.png,2,Variety of cameras,val
